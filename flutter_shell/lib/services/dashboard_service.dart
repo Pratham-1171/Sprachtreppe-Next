@@ -149,7 +149,7 @@ class DashboardService {
       pendingAssignments: assignments.where((a) => !a.completed).take(5).toList(),
       completedAssignments: assignments.where((a) => a.completed).length,
       unreadNotifications: notifications.length,
-      recentAnnouncements: (announcementRows as List).map((row) {
+      recentAnnouncements: announcementRows.map((row) {
         return AnnouncementSummary(
           title: (row['title'] as String?) ?? 'Announcement',
           body: (row['body'] as String?) ?? '',
