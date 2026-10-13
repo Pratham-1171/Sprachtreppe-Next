@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/course.dart';
+import '../models/course_module.dart';
 import '../services/course_service.dart';
 
 class CoursePageV2 extends StatefulWidget {
@@ -16,7 +16,8 @@ class _CoursePageV2State extends State<CoursePageV2> {
 
   @override
   Widget build(BuildContext context) {
-    final course = _service.courses.firstWhere((item) => item.level == _level);
+    final modules = _service.modules.where((module) => module.level == _level).toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Deutsch lernen')),
       body: ListView(
@@ -32,21 +33,44 @@ class _CoursePageV2State extends State<CoursePageV2> {
             onSelectionChanged: (selection) => setState(() => _level = selection.first),
           ),
           const SizedBox(height: 16),
-          Text(course.title, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text(course.subtitle),
-          const SizedBox(height: 16),
-          ...course.lessons.map((lesson) => Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  leading: CircleAvatar(child: Text('${lesson.number}')),
-                  title: Text(lesson.title),
-                  subtitle: Padding(padding: const EdgeInsets.only(top: 6), child: Text(lesson.topic)),
-                  trailing: const Icon(Icons.chevron_right),
-                ),
-              )),
+          ...modules.map((module) => _ModuleCard(module: module)),
         ],
+      ),
+    );
+  }
+}
+
+class _ModuleCard extends StatelessWidget {
+  const _ModuleCard({required this.module});
+
+  final CourseModule module;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(module.title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(module.description),
+            const SizedBox(height: 12),
+            ...module.topics.asMap().entries.map(
+                  (entry) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      radius: 16,
+                      child: Text('${entry.key + 1}'),
+                    ),
+                    title: Text(entry.value),
+                    trailing: const Icon(Icons.chevron_right),
+                  ),
+                ),
+          ],
+        ),
       ),
     );
   }
