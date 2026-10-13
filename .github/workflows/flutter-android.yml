@@ -19,6 +19,8 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Generate Android platform files
+        run: flutter create --platforms=android --no-pub .
       - name: Get dependencies
         run: flutter pub get
       - name: Analyze
