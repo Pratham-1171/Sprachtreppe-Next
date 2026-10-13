@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models/app_role.dart';
 import 'models/app_user.dart';
 import 'pages/login_page.dart';
+import 'pages/student_dashboard_page.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
@@ -28,16 +29,14 @@ class _SprachtreppeAppState extends State<SprachtreppeApp> {
     super.initState();
     _authService = AuthService(Supabase.instance.client);
     _restoreSession();
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
-      (state) {
-        if (state.session == null && mounted) {
-          setState(() {
-            _user = null;
-            _loading = false;
-          });
-        }
-      },
-    );
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+      if (state.session == null && mounted) {
+        setState(() {
+          _user = null;
+          _loading = false;
+        });
+      }
+    });
   }
 
   Future<void> _restoreSession() async {
@@ -152,6 +151,13 @@ class _RoleShellState extends State<RoleShell> {
     }
   }
 
+  Widget _pageFor(_NavItem item) {
+    if (widget.user.role == AppRole.student && item.label == 'Home') {
+      return StudentDashboardPage(user: widget.user);
+    }
+    return _Page(title: item.label, role: widget.user.role);
+  }
+
   @override
   Widget build(BuildContext context) {
     final nav = items;
@@ -188,7 +194,7 @@ class _RoleShellState extends State<RoleShell> {
       body: SafeArea(
         child: IndexedStack(
           index: index,
-          children: nav.map((item) => _Page(title: item.label, role: widget.user.role)).toList(),
+          children: nav.map(_pageFor).toList(),
         ),
       ),
       bottomNavigationBar: NavigationBar(
@@ -255,7 +261,7 @@ class _Page extends StatelessWidget {
                     children: [
                       Text('Authentication is connected', style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 8),
-                      const Text('This Flutter screen is now protected by Supabase Auth and the profile role. The legacy LMS remains untouched.'),
+                      const Text('This Flutter screen is protected by Supabase Auth and the profile role. The legacy LMS remains untouched.'),
                     ],
                   ),
                 ),
