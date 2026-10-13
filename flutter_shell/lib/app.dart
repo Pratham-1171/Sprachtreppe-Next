@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'models/app_role.dart';
 import 'models/app_user.dart';
+import 'pages/course_page.dart';
 import 'pages/login_page.dart';
 import 'pages/student_dashboard_page.dart';
 import 'services/auth_service.dart';
@@ -155,6 +156,9 @@ class _RoleShellState extends State<RoleShell> {
     if (widget.user.role == AppRole.student && item.label == 'Home') {
       return StudentDashboardPage(user: widget.user);
     }
+    if (widget.user.role == AppRole.student && item.label == 'Learn') {
+      return const CoursePage();
+    }
     return _Page(title: item.label, role: widget.user.role);
   }
 
@@ -261,7 +265,7 @@ class _Page extends StatelessWidget {
                     children: [
                       Text('Authentication is connected', style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 8),
-                      const Text('This Flutter screen is protected by Supabase Auth and the profile role. The legacy LMS remains untouched.'),
+                      const Text('This Flutter screen is protected by Supabase Auth and the profile role. The legacy LMS remains available during migration.'),
                     ],
                   ),
                 ),
