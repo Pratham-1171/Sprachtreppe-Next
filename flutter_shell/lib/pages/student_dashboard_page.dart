@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user.dart';
 import '../services/dashboard_service.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key, required this.user});
-
   final AppUser user;
 
   @override
@@ -18,13 +18,15 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   @override
   void initState() {
     super.initState();
-    _future = DashboardService(SupabaseScope.client).load(widget.user.id);
+    _load();
+  }
+
+  void _load() {
+    _future = DashboardService(Supabase.instance.client).load(widget.user.id);
   }
 
   Future<void> _refresh() async {
-    setState(() {
-      _future = DashboardService(SupabaseScope.client).load(widget.user.id);
-    });
+    setState(_load);
     await _future;
   }
 
@@ -39,54 +41,48 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         if (snapshot.hasError) {
           return _ErrorState(error: snapshot.error, onRetry: _refresh);
         }
-
         final data = snapshot.data!;
         return RefreshIndicator(
           onRefresh: _refresh,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final horizontal = constraints.maxWidth < 500 ? 16.0 : 24.0;
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(horizontal, 16, horizontal, 28),
-                children: [
-                  Text('Welcome back, ${_firstName(widget.user.displayName)}',
-                      style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 4),
-                  Text('Keep your German progress moving.',
-                      style: Theme.of(context).textTheme.bodyLarge),
-                  const SizedBox(height: 18),
-                  _StatsGrid(data: data),
-                  const SizedBox(height: 22),
-                  _SectionHeader(title: 'Your classes', count: data.classes.length),
-                  const SizedBox(height: 10),
-                  if (data.classes.isEmpty)
-                    const _EmptyCard(text: 'You are not enrolled in a class yet.')
-                  else
-                    ...data.classes.map((item) => Card(
-                          child: ListTile(
-                            leading: const CircleAvatar(child: Icon(Icons.groups_outlined)),
-                            title: Text(item.name),
-                            subtitle: const Text('German learning class'),
-                          ),
-                        )),
-                  const SizedBox(height: 18),
-                  _SectionHeader(title: 'Pending assignments', count: data.pendingAssignments.length),
-                  const SizedBox(height: 10),
-                  if (data.pendingAssignments.isEmpty)
-                    const _EmptyCard(text: 'No pending assignments. Great job!')
-                  else
-                    ...data.pendingAssignments.map((item) => _AssignmentCard(item: item)),
-                  const SizedBox(height: 18),
-                  _SectionHeader(title: 'Announcements', count: data.recentAnnouncements.length),
-                  const SizedBox(height: 10),
-                  if (data.recentAnnouncements.isEmpty)
-                    const _EmptyCard(text: 'No recent announcements.')
-                  else
-                    ...data.recentAnnouncements.map((item) => _AnnouncementCard(item: item)),
-                ],
-              );
-            },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+            children: [
+              Text('Welcome back, ${_firstName(widget.user.displayName)}',
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 4),
+              Text('Keep your German progress moving.',
+                  style: Theme.of(context).textTheme.bodyLarge),
+              const SizedBox(height: 18),
+              _StatsGrid(data: data),
+              const SizedBox(height: 22),
+              _SectionHeader(title: 'Your classes', count: data.classes.length),
+              const SizedBox(height: 10),
+              if (data.classes.isEmpty)
+                const _EmptyCard(text: 'You are not enrolled in a class yet.')
+              else
+                ...data.classes.map((item) => Card(
+                      child: ListTile(
+                        leading: const CircleAvatar(child: Icon(Icons.groups_outlined)),
+                        title: Text(item.name),
+                        subtitle: const Text('German learning class'),
+                      ),
+                    )),
+              const SizedBox(height: 18),
+              _SectionHeader(title: 'Pending assignments', count: data.pendingAssignments.length),
+              const SizedBox(height: 10),
+              if (data.pendingAssignments.isEmpty)
+                const _EmptyCard(text: 'No pending assignments. Great job!')
+              else
+                ...data.pendingAssignments.map((item) => _AssignmentCard(item: item)),
+              const SizedBox(height: 18),
+              _SectionHeader(title: 'Announcements', count: data.recentAnnouncements.length),
+              const SizedBox(height: 10),
+              if (data.recentAnnouncements.isEmpty)
+                const _EmptyCard(text: 'No recent announcements.')
+              else
+                ...data.recentAnnouncements.map((item) => _AnnouncementCard(item: item)),
+            ],
           ),
         );
       },
@@ -177,7 +173,7 @@ class _AssignmentCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                Text('$item.done / ${item.targetCount} done'.replaceFirst(RegExp(r'^.*?done'), '${item.done} / ${item.targetCount} done')),
+                Text('${item.done} / ${item.targetCount} done'),
                 const Spacer(),
                 if (item.dueAt != null) Text(_dueLabel(item.dueAt!)),
               ],
@@ -236,12 +232,7 @@ class _EmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Text(text),
-      ),
-    );
+    return Card(child: Padding(padding: const EdgeInsets.all(18), child: Text(text)));
   }
 }
 
@@ -271,11 +262,5 @@ class _ErrorState extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class SupabaseScope {
-  static dynamic get client {
-    throw UnsupportedError('SupabaseScope.client must be provided by app.dart');
   }
 }
