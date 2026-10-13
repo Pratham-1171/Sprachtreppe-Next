@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/app_user.dart';
 import '../services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.authService, required this.onSignedIn});
 
   final AuthService authService;
-  final ValueChanged<dynamic> onSignedIn;
+  final ValueChanged<AppUser> onSignedIn;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
