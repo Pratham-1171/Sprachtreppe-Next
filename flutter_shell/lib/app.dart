@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'models/app_role.dart';
 import 'models/app_user.dart';
+import 'pages/login_page.dart';
+import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
 class SprachtreppeApp extends StatefulWidget {
@@ -12,7 +17,61 @@ class SprachtreppeApp extends StatefulWidget {
 }
 
 class _SprachtreppeAppState extends State<SprachtreppeApp> {
-  AppRole role = AppRole.student;
+  late final AuthService _authService;
+  late final StreamSubscription<AuthState> _authSubscription;
+  AppUser? _user;
+  bool _loading = true;
+  String? _startupError;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService = AuthService(Supabase.instance.client);
+    _restoreSession();
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (state) {
+        if (state.session == null && mounted) {
+          setState(() {
+            _user = null;
+            _loading = false;
+          });
+        }
+      },
+    );
+  }
+
+  Future<void> _restoreSession() async {
+    try {
+      if (Supabase.instance.client.auth.currentSession != null) {
+        _user = await _authService.loadCurrentUser();
+      }
+    } on AuthException catch (error) {
+      await Supabase.instance.client.auth.signOut();
+      _startupError = error.message;
+    } catch (_) {
+      _startupError = 'Could not restore your session.';
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _signedIn(AppUser user) {
+    setState(() {
+      _user = user;
+      _startupError = null;
+    });
+  }
+
+  Future<void> _signedOut() async {
+    await _authService.signOut();
+    if (mounted) setState(() => _user = null);
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,19 +79,45 @@ class _SprachtreppeAppState extends State<SprachtreppeApp> {
       debugShowCheckedModeBanner: false,
       title: 'Sprachtreppe',
       theme: AppTheme.light(),
-      home: RoleShell(
-        user: AppUser(id: 'demo', displayName: 'Demo User', role: role),
-        onRoleChanged: (value) => setState(() => role = value),
-      ),
+      home: _loading
+          ? const _LoadingPage()
+          : _user == null
+              ? LoginPage(authService: _authService, onSignedIn: _signedIn)
+              : RoleShell(user: _user!, onSignOut: _signedOut),
+      builder: (context, child) {
+        if (_startupError == null || child == null) return child ?? const SizedBox.shrink();
+        return Stack(
+          children: [
+            child,
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Material(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Text(
+                      _startupError!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
 class RoleShell extends StatefulWidget {
-  const RoleShell({super.key, required this.user, required this.onRoleChanged});
+  const RoleShell({super.key, required this.user, required this.onSignOut});
 
   final AppUser user;
-  final ValueChanged<AppRole> onRoleChanged;
+  final VoidCallback onSignOut;
 
   @override
   State<RoleShell> createState() => _RoleShellState();
@@ -77,18 +162,27 @@ class _RoleShellState extends State<RoleShell> {
         titleSpacing: 16,
         title: const Text('Sprachtreppe', overflow: TextOverflow.ellipsis),
         actions: [
-          PopupMenuButton<AppRole>(
-            tooltip: 'Demo role',
-            onSelected: widget.onRoleChanged,
-            itemBuilder: (context) => AppRole.values
-                .map((role) => PopupMenuItem(value: role, child: Text(role.label)))
-                .toList(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Chip(label: Text(widget.user.role.label)),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: PopupMenuButton<String>(
+              tooltip: 'Account',
+              onSelected: (value) {
+                if (value == 'signout') widget.onSignOut();
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  enabled: false,
+                  child: Text(widget.user.displayName, overflow: TextOverflow.ellipsis),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(value: 'signout', child: Text('Sign out')),
+              ],
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.account_circle_outlined),
+              ),
             ),
           ),
-          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(
@@ -101,14 +195,25 @@ class _RoleShellState extends State<RoleShell> {
         selectedIndex: index,
         onDestinationSelected: (value) => setState(() => index = value),
         destinations: nav
-            .map((item) => NavigationDestination(
-                  icon: Icon(item.icon),
-                  selectedIcon: Icon(item.selectedIcon),
-                  label: item.label,
-                ))
+            .map(
+              (item) => NavigationDestination(
+                icon: Icon(item.icon),
+                selectedIcon: Icon(item.selectedIcon),
+                label: item.label,
+              ),
+            )
             .toList(),
       ),
     );
+  }
+}
+
+class _LoadingPage extends StatelessWidget {
+  const _LoadingPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 
@@ -130,10 +235,7 @@ class _Page extends StatelessWidget {
             children: [
               Text(title, style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 8),
-              Text(
-                '${role.label} workspace',
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
+              Text('${role.label} workspace', style: Theme.of(context).textTheme.bodyLarge),
               const SizedBox(height: 20),
               Wrap(
                 spacing: 12,
@@ -151,15 +253,9 @@ class _Page extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Ready for the next step?', style: Theme.of(context).textTheme.titleLarge),
+                      Text('Authentication is connected', style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 8),
-                      const Text('This Flutter screen is intentionally independent of the legacy LMS. Features will be migrated here one at a time.'),
-                      const SizedBox(height: 16),
-                      FilledButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.arrow_forward),
-                        label: const Text('Continue'),
-                      ),
+                      const Text('This Flutter screen is now protected by Supabase Auth and the profile role. The legacy LMS remains untouched.'),
                     ],
                   ),
                 ),
