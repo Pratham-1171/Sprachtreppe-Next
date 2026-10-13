@@ -1,10 +1,30 @@
 # Sprachtreppe Flutter Shell
 
-This directory is the beginning of the gradual Flutter migration for Sprachtreppe.
+This directory is the gradual Flutter migration for Sprachtreppe.
 
 ## Migration rule
 
-The existing LMS remains intact. Flutter is introduced alongside it and will replace features incrementally only after each replacement is tested.
+Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed only after its Flutter replacement passes CI, is tested on Android, and its Supabase behavior is verified.
+
+## Current migration status
+
+- ✅ Mobile-first application shell
+- ✅ Authentication and role routing
+- ✅ Student dashboard
+- 🚧 Course catalog / lessons — Flutter replacement started
+- ⏳ Vocabulary
+- ⏳ Grammar
+- ⏳ Practice and exercises
+- ⏳ Progress and offline storage
+- ⏳ Assignments and announcements
+- ⏳ Teacher tools
+- ⏳ Admin tools
+- ⏳ Sync and notifications
+- ⏳ Final legacy LMS removal
+
+## Cleanup rule
+
+Safe infrastructure cleanup can happen before feature migration when it is proven unused by the Flutter branch. The obsolete Capacitor APK workflow has been removed from this branch. The legacy course, Capacitor Android project, Node build system, and course JavaScript remain until their corresponding Flutter replacements are verified.
 
 ## Planned migration order
 
@@ -26,4 +46,4 @@ The Flutter UI must be designed for narrow Android screens first and must not in
 
 ## Safety
 
-Do not delete or modify the existing LMS as part of the initial Flutter work. The legacy implementation is the fallback until the corresponding Flutter feature is production-ready.
+Never remove a legacy feature merely because a Flutter screen exists. The replacement must contain the required behavior, pass CI, be tested on-device, and be verified against Supabase first.
