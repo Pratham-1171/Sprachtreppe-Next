@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -55,8 +57,26 @@ class OfflineSyncService {
 
   String get _lastSyncKey => 'sprachtreppe_last_sync_v1_$userId';
   String get _pendingClientIdKey => 'sprachtreppe_pending_sync_id_v1_$userId';
+  String get _lastSyncedClientIdKey => 'sprachtreppe_last_synced_client_id_v1_$userId';
+  String get _lastSnapshotKey => 'sprachtreppe_last_snapshot_v1_$userId';
 
   static const weeklyInterval = Duration(days: 7);
+
+  /// A stable representation of the local sessions and their derived totals.
+  /// Keeping this in local preferences lets repeat syncs reuse their server id.
+  static String sessionSnapshot(List<StudySession> sessions, ProgressStats stats) {
+    return jsonEncode({
+      'sessions': sessions.map((session) => session.toJson()).toList(),
+      'summary': {
+        'session_count': stats.totalSessions,
+        'total_questions': stats.totalQuestions,
+        'correct_answers': stats.correctAnswers,
+        'accuracy_percent': stats.accuracyPercent,
+        'current_streak': stats.currentStreak,
+        'best_streak': stats.bestStreak,
+      },
+    });
+  }
 
   static bool isSyncDue(DateTime? lastSyncAt, {DateTime? now}) {
     if (lastSyncAt == null) return true;
@@ -81,9 +101,15 @@ class OfflineSyncService {
     final stats = ProgressStats.fromSessions(sessions);
     final now = DateTime.now().toUtc();
 
-    // Reuse the same id after a network failure so retries remain idempotent.
-    final clientId = preferences.getString(_pendingClientIdKey) ??
-        'flutter-${now.microsecondsSinceEpoch}';
+    // Reuse a pending id after network failure. If the saved snapshot is unchanged,
+    // also reuse its successful id so a manual repeat does not create a duplicate review.
+    final snapshot = sessionSnapshot(sessions, stats);
+    final pendingClientId = preferences.getString(_pendingClientIdKey);
+    final previousClientId = preferences.getString(_lastSyncedClientIdKey);
+    final unchangedSnapshot =
+        snapshot == preferences.getString(_lastSnapshotKey) && previousClientId != null;
+    final clientId = pendingClientId ??
+        (unchangedSnapshot ? previousClientId : 'flutter-${now.microsecondsSinceEpoch}');
     if (clientId.length < 8 || clientId.length > 64) {
       throw StateError('The local sync identifier is invalid. Clear app storage only if this persists.');
     }
@@ -129,6 +155,8 @@ class OfflineSyncService {
     }
 
     await preferences.setString(_lastSyncKey, syncedAt.toIso8601String());
+    await preferences.setString(_lastSyncedClientIdKey, clientId);
+    await preferences.setString(_lastSnapshotKey, snapshot);
     await preferences.remove(_pendingClientIdKey);
 
     return OfflineSyncResult(
