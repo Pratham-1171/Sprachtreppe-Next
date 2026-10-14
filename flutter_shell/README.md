@@ -9,17 +9,17 @@ Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed o
 ## Current migration status
 
 - ✅ Mobile-first Flutter shell, sign-in and role-based navigation
-- 🚧 Supabase-backed student dashboard with classes, assignments, class and school-wide announcements, and local study statistics (global-announcement visibility fix under CI verification)
+- ✅ Supabase-backed student dashboard with classes, assignments, class and school-wide announcements, and local study statistics (CI passed; device verification pending)
 - ✅ A1–B1 course outline, searchable offline vocabulary and grammar library
-- 🚧 Offline practice quizzes with locally stored session history, accuracy, streaks and queued assignment progress for weekly sync (CI verification pending)
+- ✅ Offline practice quizzes with locally stored session history, accuracy, streaks and queued assignment progress for weekly sync (CI passed; device verification pending)
 - ✅ Last-approved profile cache for restoring the learning UI after recognized network failures (CI passed; device verification pending)
 - ✅ Student assignment list and reading/writing submissions
-- 🚧 Teacher dashboard, assigned classes, class announcements and server-validated class assignment creation (CI verification pending)
+- ✅ Teacher dashboard, assigned classes, class announcements and server-validated class assignment creation (CI passed; device verification pending)
 - ✅ Admin dashboard, student approval, class/teacher setup, assignment creation and submission review
-- 🚧 Teacher/admin in-app announcement publishing with student inbox delivery (trigger migration applied; latest Flutter CI/device verification pending)
+- ✅ Teacher/admin in-app announcement publishing with student inbox delivery (Flutter CI passed; trigger migration applied; device verification pending)
 - ✅ Role-aware profile page with local progress, password-reset email and sign-out controls (CI passed; device verification pending)
 - ✅ Weekly sync gate for offline Learn/Practice access (CI passed; device verification pending)
-- ✅ Notification inbox and weekly progress sync (CI passed; Android device verification pending)
+- ✅ Notification inbox and weekly progress sync, including queued assignment progress (CI passed; Android device verification pending)
 - ⏳ Final online/offline end-to-end testing and legacy LMS removal
 
 These checkmarks indicate that the Flutter code exists; they do not claim device-level verification.
@@ -44,6 +44,7 @@ Design for narrow Android screens first. Normal content should never require hor
 ## Safety and security
 
 - Protected server-side role checks and Supabase RLS remain the security boundary; hiding a button is not authorization.
+- Anonymous execution was revoked from the affected SECURITY DEFINER RPCs while retaining authenticated grants for the app. Remaining Supabase Advisor warnings cover signed-in RPCs and disabled leaked-password protection; review these separately before production rollout.
 - The local profile cache is used only to restore the learning UI after recognized network/DNS failures. It does not grant database or RPC access, and it is cleared on sign-out or when an online profile is unapproved.
 - Never put a Supabase service-role or secret key in a mobile app.
 - Do not remove the legacy course, Capacitor project, Node build setup or course JavaScript until the corresponding Flutter replacement has passed CI, been tested on an Android device and had its Supabase behavior verified.
