@@ -2,7 +2,7 @@ name: Deploy Sprachtreppe Web App
 
 on:
   push:
-    branches: [main]
+    branches: [main, flutter-shell]
   workflow_dispatch:
 
 permissions:
@@ -34,6 +34,33 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: python3 scripts/build-course-lms.py
+      - name: Setup Flutter for the desktop web client
+        if: ${{ hashFiles('flutter_shell/pubspec.yaml') != '' }}
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Test and build Flutter web client
+        if: ${{ hashFiles('flutter_shell/pubspec.yaml') != '' }}
+        run: |
+          cd flutter_shell
+          flutter create --platforms=web --no-pub .
+          rm -f test/widget_test.dart
+          mkdir -p assets
+          cp ../course/vocabulary-data.js assets/vocabulary-data.js
+          flutter pub get
+          flutter analyze
+          flutter test
+          flutter build web --release --base-href /Sprachtreppe-Next/flutter/
+          mkdir -p ../www/flutter
+          cp -R build/web/. ../www/flutter/
+          python3 - <<'PY'
+          from pathlib import Path
+          page = Path("../www/flutter/index.html")
+          html = page.read_text()
+          html = html.replace("<title>sprachtreppe_flutter</title>", "<title>Sprachtreppe | German A1–B1</title>")
+          page.write_text(html)
+          PY
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
