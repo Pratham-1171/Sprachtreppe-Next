@@ -8,6 +8,7 @@ import 'models/app_user.dart';
 import 'pages/learn_page.dart';
 import 'pages/login_page.dart';
 import 'pages/practice_page.dart';
+import 'pages/profile_page.dart';
 import 'pages/assignments_page.dart';
 import 'pages/student_dashboard_page.dart';
 import 'pages/teacher_pages.dart';
@@ -194,6 +195,9 @@ class _RoleShellState extends State<RoleShell> {
   }
 
   Widget _pageFor(_NavItem item) {
+    if (item.label == 'Profile') {
+      return ProfilePage(user: widget.user, onSignOut: widget.onSignOut);
+    }
     if (widget.user.role == AppRole.student && item.label == 'Home') {
       return StudentDashboardPage(user: widget.user);
     }
