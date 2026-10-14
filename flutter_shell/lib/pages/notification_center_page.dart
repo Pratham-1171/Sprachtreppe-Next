@@ -227,6 +227,7 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
                     _NotificationCard(
                       notification: notification,
                       busy: _markingRead.contains(notification.id),
+                      isOffline: _notifications.lastLoadUsedCache,
                       onMarkRead: () => _markRead(notification),
                     ),
                 const SizedBox(height: 8),
@@ -328,11 +329,13 @@ class _NotificationCard extends StatelessWidget {
   const _NotificationCard({
     required this.notification,
     required this.busy,
+    required this.isOffline,
     required this.onMarkRead,
   });
 
   final AppNotification notification;
   final bool busy;
+  final bool isOffline;
   final VoidCallback onMarkRead;
 
   @override
@@ -392,8 +395,10 @@ class _NotificationCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: busy ? null : onMarkRead,
-                  child: Text(busy ? 'Saving…' : 'Mark as read'),
+                  onPressed: busy || isOffline ? null : onMarkRead,
+                  child: Text(
+                    isOffline ? 'Connect to mark as read' : (busy ? 'Saving…' : 'Mark as read'),
+                  ),
                 ),
               ),
             ],
