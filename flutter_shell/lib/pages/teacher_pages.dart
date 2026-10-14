@@ -786,3 +786,4 @@ class _TeacherAnnouncementDialogState extends State<_TeacherAnnouncementDialog> 
           ),
         ],
       );
+}
