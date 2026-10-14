@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build www/index.html from the course sources."""
-import hashlib, json, os, re
+import base64, hashlib, json, os, re
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
@@ -30,7 +30,7 @@ patch_app("new Date(Date.now() - 86400000).toISOString().slice(0,10)", "localStu
 patch_app("new Date(d.setDate(diff)).toISOString().slice(0,10)", "localStudyDate(new Date(d.setDate(diff)))")
 patch_app("sessionState.results.push({correct:true}); sessionState.idx++;", "recordPracticeActivity('mistakes', true); sessionState.results.push({correct:true}); sessionState.idx++;")
 patch_app("setTimeout(() => { sessionState.idx++; renderSessionCard($('#view')); }, 900);", "const nextButton = document.createElement('button'); nextButton.className='btn small'; nextButton.textContent='Next →'; nextButton.onclick=()=>{ sessionState.idx++; renderSessionCard($('#view')); }; body.appendChild(nextButton);")
-patch_app("setTimeout(() => { quizState.idx++; quizState.answered = false; renderQuiz(); }, 1100);", "const nextButton = document.createElement('button'); nextButton.className='btn small'; nextButton.textContent='Next →'; nextButton.onclick=()=>{ quizState.idx++; quizState.answered=false; renderQuiz(); }; $('#feedback').appendChild(nextButton);")
+patch_app("setTimeout(() => { quizState.idx++; quizState.answered = false; renderQuiz(); }, 1100);", "const nextButton = document.createElement('button'); nextButton.className='btn small'; nextButton.textContent='Next →'; nextButton.onclick=()=>{ quizState.idx++; quizState.answered=false; renderQuiz(); }; $('#feedback').appendChild(nextButton);", 1)
 patch_app("function renderSessionExercise(body, ex, w){", "function renderSessionExercise(body, ex, w){ delete body.dataset.done;")
 patch_app("if(p.store) localStorage.setItem(STORE.key, JSON.stringify(p.store)); alert(", "if(p.store){ localStorage.setItem(STORE.key, JSON.stringify(p.store)); markSystemEvent('import'); } alert(")
 patch_app("localStorage.removeItem(STORE.key); location.reload();", "localStorage.removeItem(STORE.key); markSystemEvent('reset'); location.reload();")
@@ -50,12 +50,25 @@ if (not url or not key) and cfg_file.exists():
     c = json.loads(cfg_file.read_text())
     url = url or c.get('url','')
     key = key or c.get('key','')
+
+def is_service_role_key(value):
+    """Detect a Supabase JWT whose payload declares the service_role role."""
+    try:
+        parts = value.split('.')
+        if len(parts) != 3:
+            return False
+        payload = parts[1] + ('=' * (-len(parts[1]) % 4))
+        data = json.loads(base64.urlsafe_b64decode(payload.encode('ascii')).decode('utf-8'))
+        return data.get('role') == 'service_role'
+    except (ValueError, UnicodeError, json.JSONDecodeError, base64.binascii.Error):
+        return False
+
 if url or key:
     # Keep this validation strict enough to reject malformed/non-Supabase URLs,
     # while accepting the normal project hostname used by tests and deployments.
     if not re.fullmatch(r'https://[a-z0-9-]+\.supabase\.(co|in)', url):
         raise SystemExit('SUPABASE_URL must look like https://<project>.supabase.co')
-    if len(key) < 30 or 'service_role' in key.lower():
+    if len(key) < 30 or is_service_role_key(key):
         raise SystemExit('SUPABASE_ANON_KEY missing or invalid. NEVER put the service_role key in the app.')
     config = {'url': url, 'key': key, 'syncDays': 7, 'warnDays': 5}
     mode = 'ACCOUNTS + WEEKLY SYNC enabled'
