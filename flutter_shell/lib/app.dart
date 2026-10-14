@@ -7,6 +7,7 @@ import 'models/app_role.dart';
 import 'models/app_user.dart';
 import 'pages/learn_page.dart';
 import 'pages/login_page.dart';
+import 'pages/practice_page.dart';
 import 'pages/student_dashboard_page.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
@@ -158,6 +159,9 @@ class _RoleShellState extends State<RoleShell> {
     }
     if (widget.user.role == AppRole.student && item.label == 'Learn') {
       return const LearnPage();
+    }
+    if (widget.user.role == AppRole.student && item.label == 'Practice') {
+      return const PracticePage();
     }
     return _Page(title: item.label, role: widget.user.role);
   }
