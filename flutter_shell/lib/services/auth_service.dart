@@ -13,9 +13,7 @@ class AuthService {
 
   Future<AppUser> loadCurrentUser() async {
     final user = _client.auth.currentUser;
-    if (user == null) {
-      throw const AuthException('No active session.');
-    }
+    if (user == null) throw const AuthException('No active session.');
 
     final Map<String, dynamic> profile;
     try {
@@ -36,13 +34,9 @@ class AuthService {
     if (!approved) {
       try {
         await _cachedUsers.clear(user.id);
-      } catch (_) {
-        // A cache cleanup failure must not keep an unapproved session active.
-      }
+      } catch (_) {}
       await _client.auth.signOut();
-      throw const AuthException(
-        'Your account is waiting for administrator approval.',
-      );
+      throw const AuthException('Your account is waiting for administrator approval.');
     }
 
     final roleName = profile['role'] as String? ?? 'student';
@@ -50,10 +44,8 @@ class AuthService {
       (value) => value.name == roleName,
       orElse: () => AppRole.student,
     );
-
     final displayName = (profile['full_name'] as String?)?.trim();
     final email = (profile['email'] as String?)?.trim();
-
     final appUser = AppUser(
       id: user.id,
       displayName: displayName?.isNotEmpty == true
@@ -63,9 +55,7 @@ class AuthService {
     );
     try {
       await _cachedUsers.save(appUser);
-    } catch (_) {
-      // Local caching must not block a valid online sign-in.
-    }
+    } catch (_) {}
     return appUser;
   }
 
@@ -79,7 +69,7 @@ class AuthService {
     );
   }
 
-  Future<AppUser> verifyCode({
+  Future<void> verifyOtpOnly({
     required String email,
     required String code,
   }) async {
@@ -88,6 +78,13 @@ class AuthService {
       token: code.trim(),
       type: OtpType.email,
     );
+  }
+
+  Future<AppUser> verifyCode({
+    required String email,
+    required String code,
+  }) async {
+    await verifyOtpOnly(email: email, code: code);
     try {
       return await loadCurrentUser();
     } catch (_) {
@@ -96,33 +93,11 @@ class AuthService {
     }
   }
 
-  Future<void> completeStudentRegistration({
-    required String fullName,
-  }) async {
+  Future<void> completeStudentRegistration({required String fullName}) async {
     await _client.rpc(
       'complete_student_signup',
       params: {'p_full_name': fullName.trim()},
     );
-  }
-
-  /// Requests an OTP that may create a new account. The database trigger
-  /// always creates it as student + unapproved; role elevation is admin-only.
-  Future<void> registerStudent({
-    required String email,
-    required String fullName,
-    required String code,
-  }) async {
-    await sendCode(email: email, allowNewStudent: true);
-    await _client.auth.verifyOTP(
-      email: email.trim(),
-      token: code.trim(),
-      type: OtpType.email,
-    );
-    try {
-      await completeStudentRegistration(fullName: fullName);
-    } finally {
-      await _client.auth.signOut();
-    }
   }
 
   Future<void> signOut() async {
@@ -130,14 +105,10 @@ class AuthService {
     try {
       await _client.auth.signOut();
     } finally {
-      if (userId != null) {
-        await _cachedUsers.clear(userId);
-      }
+      if (userId != null) await _cachedUsers.clear(userId);
     }
   }
 
-  /// Only connectivity failures may use the last approved profile cache.
-  /// Authorization, approval and server errors must not be hidden by stale data.
   static bool isConnectivityFailure(Object error) {
     final message = error.toString().toLowerCase();
     return message.contains('socketexception') ||
