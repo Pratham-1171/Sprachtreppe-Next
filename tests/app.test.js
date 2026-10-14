@@ -56,6 +56,19 @@ test('built web app ships the forest/lime palette and bypasses stale HTML caches
   assert.ok(sw.includes("new Request(e.request, { cache: 'no-store' })"), 'HTML navigation must bypass stale browser cache');
 });
 
+test('the app is English-only and has no Gujarati language UI or translation dictionary', () => {
+  const file = build({ALLOW_LOCAL_MODE: '1'});
+  const fs = require('node:fs');
+  const html = fs.readFileSync(file, 'utf8');
+  assert.ok(!/[\u0A80-\u0AFF]/.test(html), 'built app must not contain Gujarati script');
+  for (const marker of ['langBtn', 's-lang', 'UI.gu', 'guOf(', 'GUJARATI DICTIONARY', 'Gujarati', 'english-gujarati', 'Noto Sans Gujarati']) {
+    assert.ok(!html.includes(marker), 'English-only build still contains ' + marker);
+  }
+  const {window: w, errors} = load(file);
+  assert.equal(w.document.documentElement.lang, 'en');
+  assert.deepEqual(real(errors), []);
+});
+
 test('reading screen is interactive and scores answers', async () => {
   const {window: w, errors} = load(build({ALLOW_LOCAL_MODE: '1'})); await wait(600);
   await go(w, 'read'); const opts = [...w.document.querySelectorAll('.rd-opts .opt')]; assert.equal(opts.length, 20);

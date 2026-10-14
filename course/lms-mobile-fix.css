@@ -28,7 +28,6 @@ header .iconbtn{flex:0 0 auto;box-sizing:border-box}
   header .spacer{display:none}
   header #spChip{order:2;flex:1 1 auto;max-width:none;overflow:hidden;text-overflow:ellipsis;}
   header #spAcct{order:3}
-  header #langBtn{order:4}
   header #themeBtn{order:5}
   header #settingsBtn{order:6}
   header .iconbtn{min-width:36px;width:36px;height:36px;padding:0;}

@@ -521,7 +521,7 @@
     const i = NAV.findIndex(n => n[0] === 'admin');
     if (isAdmin() && i < 0) NAV.splice(1, 0, ['admin', 'nav_admin']);
     if (!isAdmin() && i >= 0) NAV.splice(i, 1);
-    try { UI.en.nav_admin = '🛡️ Admin'; UI.gu.nav_admin = '🛡️ Admin'; } catch (e) {}
+    try { UI.en.nav_admin = '🛡️ Admin'; } catch (e) {}
     if (typeof buildNav === 'function') buildNav();
   }
   function tick() { touchClock(); renderLock(); renderChip(); if (isStudent() && auth.profile.approved && online() && (sync.dirty || lockState().warn) && Date.now() - (sync.lastAttempt || 0) > 10 * 60000) syncNow(false).catch(() => {}); }

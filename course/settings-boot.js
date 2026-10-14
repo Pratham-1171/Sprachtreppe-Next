@@ -6,8 +6,6 @@ function viewSettings(el){
   const st = S.settings;
   el.innerHTML = `<h2>${t('settings_title')}</h2><p class="sub">${t('settings_sub')}</p>
     <div class="settings-section"><h4>General</h4>
-      <div class="setting-row"><div><div class="sr-label">Language</div></div>
-        <select id="s-lang"><option value="en" ${st.lang==='en'?'selected':''}>English</option><option value="gu" ${st.lang==='gu'?'selected':''}>ગુજરાતી</option></select></div>
       <div class="setting-row"><div><div class="sr-label">Theme</div></div>
         <select id="s-theme"><option value="light" ${st.theme==='light'?'selected':''}>Light</option><option value="dark" ${st.theme==='dark'?'selected':''}>Dark</option></select></div>
       <div class="setting-row"><div><div class="sr-label">Font size</div></div>
@@ -49,7 +47,6 @@ function viewSettings(el){
     <div class="center mini-muted mt" id="saveInd" style="opacity:0;transition:opacity .3s">✓ Saved</div>`;
   const flash = () => { const i = $('#saveInd'); i.style.opacity = 1; setTimeout(() => i.style.opacity = 0, 1200); };
   const apply = () => { applySettingsToDOM(); STORE.save(); flash(); };
-  $('#s-lang').onchange = e => { S.settings.lang = e.target.value; STORE.save(); applyLanguage(true); };
   $('#s-theme').onchange = e => { S.settings.theme = e.target.value; applyTheme(); apply(); };
   $('#s-font').onchange = e => { S.settings.fontSize = e.target.value; apply(); };
   $('#s-compactnav').onchange = e => { S.settings.compactNav = e.target.checked; apply(); };
@@ -90,15 +87,16 @@ function applySettingsToDOM(){
   document.documentElement.setAttribute('data-reducemotion', S.settings.reduceMotion ? '1' : '0');
 }
 function applyLanguage(renderView){
-  const lang = (S.settings.lang === 'gu') ? 'gu' : 'en';
-  document.documentElement.lang = lang;
-  $('#langBtn').textContent = lang === 'gu' ? 'EN' : 'ગુજરાતી';
+  const changed = S.settings.lang !== 'en' || Object.prototype.hasOwnProperty.call(S.settings, 'translationMode');
+  S.settings.lang = 'en';
+  delete S.settings.translationMode;
+  document.documentElement.lang = 'en';
   buildNav();
+  if(changed) STORE.save();
   if(renderView) route();
 }
 
 $('#themeBtn').onclick = e => { e.preventDefault(); e.stopPropagation(); S.settings.theme = (S.settings.theme === 'dark') ? 'light' : 'dark'; STORE.save(); applyTheme(); };
-$('#langBtn').onclick = e => { e.preventDefault(); e.stopPropagation(); S.settings.lang = (S.settings.lang === 'gu') ? 'en' : 'gu'; STORE.save(); applyLanguage(true); };
 $('#settingsBtn').onclick = e => {
   e.preventDefault();
   e.stopPropagation();

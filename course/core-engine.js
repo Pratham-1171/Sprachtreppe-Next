@@ -55,7 +55,7 @@ const STORE = {
       mistakesCleared:0, familiesViewed:0, audioPlays:0, sentencesBuilt:0, spelledCorrect:0,
       connectorsDone:0, collocationsDone:0, readingsGenerated:0, listeningsDone:0, writingsDone:0,
       settings:{
-        lang:'en', translationMode:'english-gujarati', theme:'light',
+        lang:'en', theme:'light',
         fontSize:'normal', compactNav:false, reduceMotion:false, rememberLast:true,
         audioEnabled:true, autoPlay:false, speechRate:0.9,
         defaultCount:10, defaultDifficulty:'mixed',

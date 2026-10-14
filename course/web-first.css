@@ -9,7 +9,6 @@ header{height:var(--topbar-h);padding-left:var(--pad-x);padding-right:var(--pad-
 header .spacer{display:block}
 header:after{content:'Learning workspace';font-size:12px;color:var(--muted);font-weight:650;order:2;margin-left:8px;margin-right:12px}
 header .iconbtn{order:3;background:var(--bg);border-radius:11px}
-header .langbtn{order:3}
 
 /* Desktop: turn the existing course navigation into the app sidebar. */
 nav{position:fixed;left:0;top:var(--topbar-h);bottom:0;width:var(--sidebar-w);height:auto;z-index:45;border-right:1px solid var(--line);border-bottom:0;overflow-y:auto;overflow-x:hidden;background:var(--card);padding:18px 12px}

@@ -32,7 +32,7 @@ function viewVocab(el){
         const syn = SYNONYMS.find(x => x.word === w.de);
         const synText = syn ? syn.syn.map(x => x[0]).join(' ') : '';
         const opp = OPPOSITES.filter(p => p[0] === w.de || p[2] === w.de).map(p => p.join(' ')).join(' ');
-        const hay = [w.de, w.en, guOf(w.de) || '', synText, opp].join(' ').toLowerCase();
+        const hay = [w.de, w.en, synText, opp].join(' ').toLowerCase();
         if(!hay.includes(s)) return false;
       }
       return true;
