@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'offline_assignment_progress_service.dart';
 import 'progress_service.dart';
 
 class SyncFeedback {
@@ -36,6 +37,7 @@ class OfflineSyncResult {
     required this.totalQuestions,
     required this.correctAnswers,
     required this.accuracyPercent,
+    required this.assignmentProgressCount,
     required this.feedback,
   });
 
@@ -44,16 +46,19 @@ class OfflineSyncResult {
   final int totalQuestions;
   final int correctAnswers;
   final int accuracyPercent;
+  final int assignmentProgressCount;
   final List<SyncFeedback> feedback;
 }
 
 class OfflineSyncService {
   OfflineSyncService(this._client, this.userId)
-      : _progress = ProgressService(userId);
+      : _progress = ProgressService(userId),
+        _assignmentProgress = OfflineAssignmentProgressService(userId);
 
   final SupabaseClient _client;
   final String userId;
   final ProgressService _progress;
+  final OfflineAssignmentProgressService _assignmentProgress;
 
   String get _lastSyncKey => 'sprachtreppe_last_sync_v1_$userId';
   String get _pendingClientIdKey => 'sprachtreppe_pending_sync_id_v1_$userId';
@@ -64,9 +69,20 @@ class OfflineSyncService {
 
   /// A stable representation of the local sessions and their derived totals.
   /// Keeping this in local preferences lets repeat syncs reuse their server id.
-  static String sessionSnapshot(List<StudySession> sessions, ProgressStats stats) {
+  static String sessionSnapshot(
+    List<StudySession> sessions,
+    ProgressStats stats, {
+    Map<String, Map<String, Object>> assignments =
+        const <String, Map<String, Object>>{},
+  }) {
+    final stableAssignments = <String, Object>{};
+    final keys = assignments.keys.toList()..sort();
+    for (final key in keys) {
+      stableAssignments[key] = assignments[key]!;
+    }
     return jsonEncode({
       'sessions': sessions.map((session) => session.toJson()).toList(),
+      'assignments': stableAssignments,
       'summary': {
         'session_count': stats.totalSessions,
         'total_questions': stats.totalQuestions,
@@ -99,11 +115,16 @@ class OfflineSyncService {
     final preferences = await SharedPreferences.getInstance();
     final sessions = await _progress.loadSessions();
     final stats = ProgressStats.fromSessions(sessions);
+    final pendingAssignments = await _assignmentProgress.loadForSync();
     final now = DateTime.now().toUtc();
 
-    // Reuse a pending id after network failure. If the saved snapshot is unchanged,
-    // also reuse its successful id so a manual repeat does not create a duplicate review.
-    final snapshot = sessionSnapshot(sessions, stats);
+    // Assignment progress is part of the idempotency snapshot as well as the payload.
+    // An unchanged local state reuses its successful id on repeat sync.
+    final snapshot = sessionSnapshot(
+      sessions,
+      stats,
+      assignments: pendingAssignments,
+    );
     final pendingClientId = preferences.getString(_pendingClientIdKey);
     final previousClientId = preferences.getString(_lastSyncedClientIdKey);
     final unchangedSnapshot =
@@ -127,6 +148,7 @@ class OfflineSyncService {
         'best_streak': stats.bestStreak,
       },
       'practice_sessions': sessions.map((session) => session.toJson()).toList(),
+      'assignments': pendingAssignments,
     };
 
     final raw = await _client.rpc(
@@ -154,9 +176,28 @@ class OfflineSyncService {
       }
     }
 
+    // Clear only the exact assignment snapshot sent above; newer local progress stays queued.
+    try {
+      await _assignmentProgress.clearSynced(pendingAssignments);
+    } catch (_) {
+      // Retain the local copy if cleanup fails; server-side upserts are monotonic.
+    }
+
+    var snapshotAfterSync = snapshot;
+    try {
+      final remainingAssignments = await _assignmentProgress.loadForSync();
+      snapshotAfterSync = sessionSnapshot(
+        sessions,
+        stats,
+        assignments: remainingAssignments,
+      );
+    } catch (_) {
+      // Keep the existing stable snapshot if reading the local queue fails.
+    }
+
     await preferences.setString(_lastSyncKey, syncedAt.toIso8601String());
     await preferences.setString(_lastSyncedClientIdKey, clientId);
-    await preferences.setString(_lastSnapshotKey, snapshot);
+    await preferences.setString(_lastSnapshotKey, snapshotAfterSync);
     await preferences.remove(_pendingClientIdKey);
 
     return OfflineSyncResult(
@@ -165,6 +206,7 @@ class OfflineSyncService {
       totalQuestions: stats.totalQuestions,
       correctAnswers: stats.correctAnswers,
       accuracyPercent: stats.accuracyPercent,
+      assignmentProgressCount: pendingAssignments.length,
       feedback: feedback,
     );
   }

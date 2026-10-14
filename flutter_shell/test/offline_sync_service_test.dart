@@ -22,6 +22,20 @@ void main() {
       );
     });
 
+    test('snapshot changes when unsynced assignment progress changes', () {
+      final sessions = [firstSession];
+      final stats = ProgressStats.fromSessions(sessions, now: completedAt);
+      final withoutAssignment = OfflineSyncService.sessionSnapshot(sessions, stats);
+      final withAssignment = OfflineSyncService.sessionSnapshot(
+        sessions,
+        stats,
+        assignments: const <String, Map<String, Object>>{
+          '17': <String, Object>{'done': 8, 'ok': 5},
+        },
+      );
+      expect(withAssignment, isNot(withoutAssignment));
+    });
+
     test('changes when a new practice session is added', () {
       final sessions = [firstSession];
       final firstStats = ProgressStats.fromSessions(sessions, now: completedAt);

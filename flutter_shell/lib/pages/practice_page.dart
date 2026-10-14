@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/grammar_lesson.dart';
 import '../models/vocabulary_word.dart';
 import '../services/grammar_service.dart';
+import '../services/offline_assignment_progress_service.dart';
 import '../services/progress_service.dart';
 import '../services/vocabulary_service.dart';
 
@@ -64,6 +65,7 @@ class _PracticePageState extends State<PracticePage> {
   int? _pendingAssignmentCorrect;
   late int _assignmentDoneNow;
   late int _assignmentCorrectNow;
+  late final OfflineAssignmentProgressService _assignmentProgress;
 
   List<_PracticeMode> get _availableModes {
     if (widget.assignmentId == null) return _PracticeMode.values;
@@ -99,8 +101,28 @@ class _PracticePageState extends State<PracticePage> {
     super.initState();
     _assignmentDoneNow = widget.assignmentDone;
     _assignmentCorrectNow = widget.assignmentCorrect;
-    if (widget.assignmentId != null) _mode = _modeForSkill(widget.assignmentSkill);
-    _loadLibrary();
+    _assignmentProgress = OfflineAssignmentProgressService(widget.userId);
+    if (widget.assignmentId != null) {
+      _mode = _modeForSkill(widget.assignmentSkill);
+      _restorePendingAssignmentProgress().then((_) {
+        if (mounted) _loadLibrary();
+      });
+    } else {
+      _loadLibrary();
+    }
+  }
+
+  Future<void> _restorePendingAssignmentProgress() async {
+    final assignmentId = widget.assignmentId;
+    if (assignmentId == null) return;
+    try {
+      final pending = await _assignmentProgress.loadOne(assignmentId);
+      if (pending == null) return;
+      _assignmentDoneNow = math.max(_assignmentDoneNow, pending.done);
+      _assignmentCorrectNow = math.max(_assignmentCorrectNow, pending.correct);
+    } catch (_) {
+      // Local queue restoration is best-effort and must not block practice.
+    }
   }
 
   Future<void> _loadLibrary() async {
@@ -299,14 +321,40 @@ class _PracticePageState extends State<PracticePage> {
       final correctForSync = math.min(doneForSync, _assignmentCorrectNow + _score);
       pendingDone = doneForSync;
       pendingCorrect = correctForSync;
+      var savedLocally = false;
+      try {
+        await _assignmentProgress.recordProgress(
+          assignmentId: widget.assignmentId!,
+          done: doneForSync,
+          correct: correctForSync,
+        );
+        savedLocally = true;
+      } catch (_) {
+        // Still attempt the online update. A successful server write is enough.
+      }
+
       try {
         await _writeAssignmentProgress(doneForSync, correctForSync);
+        if (savedLocally) {
+          try {
+            await _assignmentProgress.clearSynced({
+              widget.assignmentId!.toString(): {
+                'done': doneForSync,
+                'ok': correctForSync,
+              },
+            });
+          } catch (_) {
+            // A later sync can clear this harmless local copy.
+          }
+        }
         assignmentNotice = doneForSync >= widget.assignmentTargetCount!
             ? 'Assignment completed and reported to your account.'
             : 'Assignment progress saved to your account.';
       } catch (_) {
         assignmentSyncFailed = true;
-        assignmentNotice = 'Assignment progress is not synced yet. Reconnect and retry.';
+        assignmentNotice = savedLocally
+            ? 'Assignment progress is saved on this device and will sync when you reconnect.'
+            : 'Could not sync or save assignment progress locally. Reconnect and retry.';
       }
     }
 
@@ -346,6 +394,16 @@ class _PracticePageState extends State<PracticePage> {
     setState(() => _savingProgress = true);
     try {
       await _writeAssignmentProgress(done, correct);
+      try {
+        await _assignmentProgress.clearSynced({
+          widget.assignmentId!.toString(): {
+            'done': done,
+            'ok': correct,
+          },
+        });
+      } catch (_) {
+        // Keep the queue for weekly sync if local cleanup fails.
+      }
       if (!mounted) return;
       setState(() {
         _savingProgress = false;
@@ -459,7 +517,7 @@ class _PracticePageState extends State<PracticePage> {
           _buildQuestionCard(theme),
         const SizedBox(height: 12),
         Text(
-          'Practice runs offline. Completed rounds are saved on this device; cloud sync will be added in the offline-sync stage.',
+          'Practice runs offline. Study history and unsynced assignment progress are stored on this device for the weekly sync.',
           style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],
