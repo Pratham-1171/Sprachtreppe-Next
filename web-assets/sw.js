@@ -20,7 +20,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
   // HTML must bypass the browser HTTP cache so a deployed theme change is picked up immediately.
-  const isHtml = e.request.mode === 'navigate' || /\\.html?$/i.test(url.pathname);
+    const isHtml = e.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('.htm');
   const networkRequest = isHtml ? new Request(e.request, { cache: 'no-store' }) : e.request;
   e.respondWith(
     fetch(networkRequest)
