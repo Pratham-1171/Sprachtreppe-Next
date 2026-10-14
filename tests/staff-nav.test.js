@@ -1,8 +1,5 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const {load, closeAll} = require('./harness');
 const {build, FAKE_ANON, URL: SB} = require('./build-helper');
 const {createServer} = require('./mock-supabase');
@@ -15,12 +12,8 @@ const realErrors = errors => errors.filter(e => !/scrollTo|Not implemented/.test
 let htmlPath;
 function builtLmsPage() {
   if (htmlPath) return htmlPath;
-  const base = build({SUPABASE_URL: SB, SUPABASE_ANON_KEY: FAKE_ANON});
-  const lms = fs.readFileSync(path.join(__dirname, '../course/lms-ui.js'), 'utf8');
-  const html = fs.readFileSync(base, 'utf8').replace('</body>', '<script>' + lms + '</script></body>');
-  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-lms-nav-'));
-  htmlPath = path.join(folder, 'index.html');
-  fs.writeFileSync(htmlPath, html, 'utf8');
+  // Exercise the real production build: the LMS scripts must already be bundled.
+  htmlPath = build({SUPABASE_URL: SB, SUPABASE_ANON_KEY: FAKE_ANON});
   return htmlPath;
 }
 function boot(server) {

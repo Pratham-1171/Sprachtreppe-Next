@@ -41,3 +41,9 @@ header .iconbtn{flex:0 0 auto;box-sizing:border-box}
   .lms-actions .btn{flex:none;}
   .lms-kpi{width:100%;}
 }
+
+/* Browser-first responsive adaptation: the account controls can wrap to two rows. */
+@media(max-width:650px){
+  header{height:auto;min-height:58px;padding-bottom:8px;align-content:center}
+  nav{position:relative;top:auto}
+}

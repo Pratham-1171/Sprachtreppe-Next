@@ -7,6 +7,8 @@ root = Path(__file__).resolve().parent.parent
 src = (root / 'course/template.html').read_text(encoding='utf-8')
 base_css = (root / 'course/base.css').read_text(encoding='utf-8')
 web_css = (root / 'course/web-first.css').read_text(encoding='utf-8')
+lms_js = (root / 'course/lms-ui.js').read_text(encoding='utf-8')
+lms_mobile_css = (root / 'course/lms-mobile-fix.css').read_text(encoding='utf-8')
 app_module_files = ['ui-language.js','vocabulary-data.js','word-reference-data.js','grammar-reference-data.js','grammar-expansion.js','phrase-reference-data.js','achievement-data.js','core-engine.js','exercise-registry.js','navigation.js','views-dashboard.js','views-vocabulary.js','views-grammar.js','views-communication.js','views-practice.js','settings-boot.js']
 app_src = '\n'.join((root / 'course' / name).read_text(encoding='utf-8') for name in app_module_files)
 if src.count('<!-- COURSE_BASE_CSS -->') != 1 or src.count('<!-- COURSE_APP_SCRIPT -->') != 1:
@@ -37,7 +39,7 @@ patch_app("localStorage.removeItem(STORE.key); location.reload();", "localStorag
 patch_app("const ok = user === correct;", "const norm = s => String(s).toLowerCase().replace(/[.!?]+$/,'').replace(/\\s+/g,' ').trim(); const ok = norm(user) === norm(correct) || (item.accept || []).some(a => norm(a) === norm(user)); if(!$('#sbCheck').dataset.logged){ recordPracticeActivity('sentence', ok); $('#sbCheck').dataset.logged = '1'; }")
 patch_app("sessionState.results.push({correct:ok});", "if(window.EX) EX.record(ex, ok); sessionState.results.push({correct:ok});")
 patch_app("const correct = results.filter(r => r.ok).length;", "results.forEach(r => { recordPracticeActivity(r.q.skill || 'exam', r.ok); if(window.EX) EX.record(r.q, r.ok); }); const correct = results.filter(r => r.ok).length;")
-patch_app("connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare", "connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare, account:(window.viewAccount||viewHome), admin:(window.viewAdmin||viewHome)")
+patch_app("connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare", "connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare, account:(window.viewAccount||viewHome), admin:(window.viewAdmin||viewHome), classroom:(window.viewClassroom||viewHome), students:(window.viewStudents||viewHome), assignments:(window.viewAssignments||viewHome), announcements:(window.viewAnnouncements||viewHome), notifications:(window.viewNotifications||viewHome), audit:(window.viewAudit||viewHome), teachers:(window.viewTeachers||viewHome)")
 src = src.replace('<title>Sprachtreppe — German A1–B1 Master Course v5.4</title>', '<title>Sprachtreppe — German A1–B1</title>')
 src = src.replace('<title>German A1–B1 · Offline Master Course v5.3</title>', '<title>Sprachtreppe — German A1–B1</title>')
 src = src.replace('A1→B1 · v5.4', 'A1→B1 · v8')
@@ -51,25 +53,29 @@ if (not url or not key) and cfg_file.exists():
     url = url or c.get('url','')
     key = key or c.get('key','')
 
-def is_service_role_key(value):
-    """Detect a Supabase JWT whose payload declares the service_role role."""
+def is_unsafe_jwt_key(value):
+    """If a key is a JWT, only accept an explicit public anon role.
+
+    Modern Supabase publishable keys are opaque (not JWTs) and remain valid.
+    A JWT containing service_role or any other role must never be bundled.
+    """
+    parts = value.split('.')
+    if len(parts) != 3:
+        return False
     try:
-        parts = value.split('.')
-        if len(parts) != 3:
-            return False
         payload = parts[1] + ('=' * (-len(parts[1]) % 4))
         data = json.loads(base64.urlsafe_b64decode(payload.encode('ascii')).decode('utf-8'))
-        return data.get('role') == 'service_role'
-    except (ValueError, UnicodeError, json.JSONDecodeError, base64.binascii.Error):
-        return False
+    except Exception:
+        return True
+    return data.get('role') != 'anon'
 
 if url or key:
     # Keep this validation strict enough to reject malformed/non-Supabase URLs,
     # while accepting the normal project hostname used by tests and deployments.
     if not re.fullmatch(r'https://[a-z0-9-]+\.supabase\.(co|in)', url):
         raise SystemExit('SUPABASE_URL must look like https://<project>.supabase.co')
-    if len(key) < 30 or is_service_role_key(key):
-        raise SystemExit('SUPABASE_ANON_KEY missing or invalid. NEVER put the service_role key in the app.')
+    if len(key) < 30 or is_unsafe_jwt_key(key):
+        raise SystemExit('SUPABASE_ANON_KEY missing or unsafe. Only a public anon / publishable key may be bundled; NEVER put the service_role key in the app.')
     config = {'url': url, 'key': key, 'syncDays': 7, 'warnDays': 5}
     mode = 'ACCOUNTS + WEEKLY SYNC enabled'
 elif local:
@@ -83,11 +89,11 @@ theme = (root / 'course/theme.css').read_text(encoding='utf-8')
 shim = (root / 'course/native-shim.js').read_text(encoding='utf-8')
 cfg_js = 'window.SP_CONFIG=' + json.dumps(config) + ';\n'
 src = src.replace('<!-- COURSE_BASE_CSS -->', '<style>' + base_css + '</style>', 1)
-src = src.replace('</head>', '<style>' + theme + '</style><style id="spWebFirst">' + web_css + '</style><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#1e6feb"></head>', 1)
+src = src.replace('</head>', '<style>' + theme + '</style><style id="spWebFirst">' + web_css + '</style><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#6d28d9"></head>', 1)
 patch_app("$('#themeBtn').onclick =", cfg_js + '\n'.join(parts) + "\n$('#themeBtn').onclick =", 1)
 src = src.replace('<!-- COURSE_APP_SCRIPT -->', '<script>' + app_src + '</script>', 1)
 i = src.rindex('</body>')
-src = src[:i] + '<script>' + shim + '</script>' + src[i:]
+src = src[:i] + '<style id="spLmsMobileFix">' + lms_mobile_css + '</style><script>' + shim + '</script><script>' + lms_js + '</script>' + src[i:]
 out = Path(os.environ.get('SP_OUT_DIR') or (root / 'www'))
 out.mkdir(parents=True, exist_ok=True)
 (out / 'index.html').write_text(src, encoding='utf-8')

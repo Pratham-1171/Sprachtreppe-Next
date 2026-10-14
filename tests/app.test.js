@@ -1,4 +1,5 @@
 const test = require('node:test'), assert = require('node:assert');
+const fs = require('node:fs');
 const {load, closeAll} = require('./harness'), {build} = require('./build-helper');
 test.after(closeAll);
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -13,6 +14,23 @@ test('local build: every screen renders without a script error', async () => {
   assert.equal(w.__SP_ENGINE_VERSION, '8.0-grammar-core');
   assert.equal(w.SP_AUTH.enabled, false, 'local mode has no login');
 });
+test('web build bundles shared staff logic and responsive app styling', async () => {
+  const file = build({ALLOW_LOCAL_MODE: '1'});
+  const html = fs.readFileSync(file, 'utf8');
+  for (const marker of [
+    'id="spWebFirst"',
+    'id="spLmsMobileFix"',
+    'window.viewAssignments=renderAssignments;',
+    'window.viewTeachers=renderTeachers;',
+    'classroom:(window.viewClassroom||viewHome)',
+    'html,body{max-width:100%;overflow-x:hidden}'
+  ]) assert.ok(html.includes(marker), 'built web app is missing ' + marker);
+  const {window: w, errors} = load(file);
+  await wait(600);
+  assert.deepEqual(real(errors), []);
+  assert.equal(w.SP_AUTH.enabled, false, 'local mode keeps account sync disabled');
+});
+
 test('reading screen is interactive and scores answers', async () => {
   const {window: w, errors} = load(build({ALLOW_LOCAL_MODE: '1'})); await wait(600);
   await go(w, 'read'); const opts = [...w.document.querySelectorAll('.rd-opts .opt')]; assert.equal(opts.length, 20);
