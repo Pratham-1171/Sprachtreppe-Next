@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sprachtreppe_flutter/services/dashboard_service.dart';
 
@@ -31,7 +33,7 @@ void main() {
       );
 
       final restored = DashboardData.fromCacheJson(
-        original.toCacheJson().toString(),
+        jsonEncode(original.toCacheJson()),
       );
 
       expect(restored.classes.single.name, 'A2 Evening');
