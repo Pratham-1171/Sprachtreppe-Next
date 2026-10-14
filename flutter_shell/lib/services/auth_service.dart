@@ -69,13 +69,24 @@ class AuthService {
     return appUser;
   }
 
-  Future<AppUser> signIn({
+  Future<void> sendCode({
     required String email,
-    required String password,
+    required bool allowNewStudent,
   }) async {
-    await _client.auth.signInWithPassword(
+    await _client.auth.signInWithOtp(
       email: email.trim(),
-      password: password,
+      shouldCreateUser: allowNewStudent,
+    );
+  }
+
+  Future<AppUser> verifyCode({
+    required String email,
+    required String code,
+  }) async {
+    await _client.auth.verifyOTP(
+      email: email.trim(),
+      token: code.trim(),
+      type: OtpType.email,
     );
     try {
       return await loadCurrentUser();
@@ -85,8 +96,33 @@ class AuthService {
     }
   }
 
-  Future<void> sendPasswordReset(String email) async {
-    await _client.auth.resetPasswordForEmail(email.trim());
+  Future<void> completeStudentRegistration({
+    required String fullName,
+  }) async {
+    await _client.rpc(
+      'complete_student_signup',
+      params: {'p_full_name': fullName.trim()},
+    );
+  }
+
+  /// Requests an OTP that may create a new account. The database trigger
+  /// always creates it as student + unapproved; role elevation is admin-only.
+  Future<void> registerStudent({
+    required String email,
+    required String fullName,
+    required String code,
+  }) async {
+    await sendCode(email: email, allowNewStudent: true);
+    await _client.auth.verifyOTP(
+      email: email.trim(),
+      token: code.trim(),
+      type: OtpType.email,
+    );
+    try {
+      await completeStudentRegistration(fullName: fullName);
+    } finally {
+      await _client.auth.signOut();
+    }
   }
 
   Future<void> signOut() async {
