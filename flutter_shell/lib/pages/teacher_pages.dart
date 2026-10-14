@@ -422,7 +422,7 @@ class _WorkContent extends StatelessWidget {
           ),
         const SizedBox(height: 8),
         const _InfoNotice(
-          message: 'This view is read-only. Use Create class assignment above to assign practice to a class. Creation is validated by a server-side role and class-membership check.',
+          message: 'Create practice assignments for your assigned classes above. Creation is validated by a server-side role and class-membership check; editing and archiving remain admin-controlled.',
         ),
       ],
     );
