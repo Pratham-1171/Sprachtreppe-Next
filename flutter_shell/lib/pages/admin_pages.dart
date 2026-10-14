@@ -781,9 +781,6 @@ class _AdminToolsState extends State<_AdminTools> {
     );
   }
 
-  void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
 }
 
 class _SubmissionReviewCard extends StatefulWidget {
@@ -1071,4 +1068,12 @@ String _label(String value) {
       .split(RegExp(r'\s+'))
       .map((part) => part.isEmpty ? part : '${part.substring(0, 1).toUpperCase()}${part.substring(1).toLowerCase()}')
       .join(' ');
+}
+
+
+String _friendlyError(Object error) {
+  final message = error.toString().replaceFirst('Exception: ', '').trim();
+  if (message.isEmpty) return 'Please try again.';
+  if (message.length > 180) return '${message.substring(0, 177)}…';
+  return message;
 }
