@@ -212,7 +212,10 @@ class _RoleShellState extends State<RoleShell> {
       );
     }
     if (widget.user.role == AppRole.student && item.label == 'Tasks') {
-      return AssignmentsPage(userId: widget.user.id);
+      return WeeklySyncGate(
+        userId: widget.user.id,
+        child: AssignmentsPage(userId: widget.user.id),
+      );
     }
     if (widget.user.role == AppRole.teacher && item.label == 'Dashboard') {
       return const TeacherDashboardPage();
