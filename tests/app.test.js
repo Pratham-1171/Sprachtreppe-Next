@@ -46,7 +46,7 @@ test('built web app ships the forest/lime palette and bypasses stale HTML caches
     'nav button.active{background:color-mix(in oklch,var(--accent2) 24%,var(--card))',
     '.today-dash{background:linear-gradient(125deg',
     '.tag.A2{background:color-mix(in oklch,var(--accent2) 34%,var(--card))',
-    '.mastery-MASTERED{background:color-mix(in oklch,var(--accent2) 48%,var(--card))'
+    '.mastery-MASTERED{background:color-mix(in oklch,var(--accent2) 48%,var(--card))',
     '.logo span{font-size:12px;color:var(--accent2);font-weight:700}',
     'nav button.active{background:color-mix(in oklch,var(--accent2) 24%,var(--card));color:var(--text);border:0}',
     'nav button.active{background:color-mix(in oklch,var(--accent2) 18%,var(--card));color:var(--text);border-bottom:3px solid var(--accent2);border-radius:0}',
