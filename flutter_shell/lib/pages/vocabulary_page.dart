@@ -95,12 +95,19 @@ class _VocabularyPageState extends State<VocabularyPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: topics.contains(_topic) ? _topic : 'All',
+                    initialValue: topics.contains(_topic) ? _topic : 'All',
                     decoration: const InputDecoration(
                       labelText: 'Topic',
                       border: OutlineInputBorder(),
                     ),
-                    items: topics.map((topic) => DropdownMenuItem(value: topic, child: Text(topic, overflow: TextOverflow.ellipsis))).toList(),
+                    items: topics
+                        .map(
+                          (topic) => DropdownMenuItem(
+                            value: topic,
+                            child: Text(topic, overflow: TextOverflow.ellipsis),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (value) => setState(() => _topic = value ?? 'All'),
                   ),
                   const SizedBox(height: 12),
@@ -186,7 +193,11 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: 12),
             const Text('Vocabulary could not be loaded.'),
             const SizedBox(height: 12),
-            FilledButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),
