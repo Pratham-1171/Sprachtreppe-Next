@@ -10,7 +10,13 @@ h2,h3,h4 {font-family:'Lora',Georgia,'Times New Roman',serif;letter-spacing:0;}
 .card {border:0;border-bottom:1px solid var(--line);padding:18px 0;border-radius:0;box-shadow:none;}
 .card .card {border:0;}
 .session-card,.setup-panel {background:var(--card);border:1px solid var(--line);border-radius:8px;padding:24px;box-shadow:none;}
-.btn {border-radius:6px;}
+.btn {border-radius:6px;color:var(--bg);}
+.chipgroup button.active{color:var(--bg);}
+.srs-btn.again{background:var(--warn);color:var(--bg);}
+.srs-btn.hard{background:var(--gold);color:var(--text);}
+.srs-btn.good{background:var(--ok);color:var(--bg);}
+.srs-btn.easy{background:var(--accent);color:var(--bg);}
+html[data-theme="dark"] .srs-btn.hard{color:var(--bg);}
 .opt {border-radius:6px;min-height:46px;}
 .opt.correct {background:color-mix(in oklch,var(--ok) 12%,var(--card));color:var(--ok);border-color:var(--ok);}
 .opt.wrong {background:color-mix(in oklch,var(--warn) 12%,var(--card));color:var(--warn);border-color:var(--warn);}
@@ -36,7 +42,7 @@ th,td {padding:10px;border-bottom:1px solid var(--line);}
 /* Expanded grammar lesson cards: readable on mobile and desktop. */
 .grammar-card .grammar-explanation{font-size:14px;line-height:1.75;margin:9px 0 12px;max-width:78ch}
 .grammar-card .grammar-rule-label,.grammar-card .grammar-mistake-label{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.04em;margin:14px 0 6px}
-.grammar-card .grammar-rule{background:linear-gradient(135deg,rgba(30,111,235,.08),rgba(13,148,136,.08));border-left:4px solid var(--accent);border-radius:8px;padding:12px 14px;font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.75;white-space:pre-wrap;margin:8px 0 12px;overflow-x:auto}
+.grammar-card .grammar-rule{background:linear-gradient(135deg,color-mix(in oklch,var(--accent) 8%,var(--card)),color-mix(in oklch,var(--accent2) 14%,var(--card)));border-left:4px solid var(--accent);border-radius:8px;padding:12px 14px;font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.75;white-space:pre-wrap;margin:8px 0 12px;overflow-x:auto}
 .grammar-card .grammar-note{padding:10px 12px;border:1px solid var(--line);background:var(--bg);border-radius:9px;margin:9px 0;font-size:13px;line-height:1.65;overflow-wrap:anywhere}
 .grammar-card .grammar-note>b{display:block;margin-bottom:3px;color:var(--accent)}
 .grammar-card .grammar-note ol{padding-left:20px;margin:4px 0}
