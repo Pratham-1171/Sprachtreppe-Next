@@ -18,8 +18,9 @@ Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed o
 - ✅ Admin dashboard, student approval, class/teacher setup, assignment creation and submission review
 - ✅ Teacher/admin in-app announcement publishing with student inbox delivery (Flutter CI passed; trigger migration applied; device verification pending)
 - ✅ Role-aware profile page with local progress, password-reset email and sign-out controls (CI passed; device verification pending)
-- 🚧 Weekly sync gate for offline Learn/Practice/Tasks access (Learn/Practice CI passed; Tasks-gate CI and device verification pending)
-- 🚧 Notification inbox and weekly progress sync, including queued assignment progress and connectivity-only notification cache (notification cache under CI verification; Android device verification pending)
+- ✅ Weekly sync gate for offline Learn/Practice/Tasks access (CI passed; device verification pending)
+- ✅ Notification inbox and weekly progress sync, including queued assignment progress and connectivity-only notification cache (CI passed; device verification pending)
+- 🚧 Responsive desktop-browser layout and hosted Flutter web client (web build/deployment CI pending)
 - ⏳ Final online/offline end-to-end testing and legacy LMS removal
 
 These checkmarks indicate that the Flutter code exists; they do not claim device-level verification.
@@ -49,3 +50,11 @@ Design for narrow Android screens first. Normal content should never require hor
 - Never put a Supabase service-role or secret key in a mobile app.
 - Do not remove the legacy course, Capacitor project, Node build setup or course JavaScript until the corresponding Flutter replacement has passed CI, been tested on an Android device and had its Supabase behavior verified.
 - Keep main stable until the flutter-shell branch is ready for a reviewed merge.
+
+## Desktop browser version
+
+The Flutter LMS is being built for desktop browsers as well as Android. On wide windows it uses a side navigation rail; on narrow screens it keeps the mobile bottom navigation.
+
+The Pages workflow builds the existing legacy course at the site root and publishes the newer Flutter LMS under `/Sprachtreppe-Next/flutter/`. The preview is available after the `deploy-web.yml` workflow finishes successfully. Sign in using an existing approved school account; this does not create a separate browser-only account system.
+
+The Flutter app uses the project's Supabase URL and publishable key. Never add a service-role or secret key to browser code. Before production, verify authentication, password reset redirects, role authorization, and online/offline sync with real accounts.
