@@ -8,6 +8,7 @@ import 'models/app_user.dart';
 import 'pages/learn_page.dart';
 import 'pages/login_page.dart';
 import 'pages/practice_page.dart';
+import 'pages/assignments_page.dart';
 import 'pages/student_dashboard_page.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
@@ -134,6 +135,7 @@ class _RoleShellState extends State<RoleShell> {
           _NavItem(Icons.home_outlined, Icons.home, 'Home'),
           _NavItem(Icons.menu_book_outlined, Icons.menu_book, 'Learn'),
           _NavItem(Icons.edit_note_outlined, Icons.edit_note, 'Practice'),
+          _NavItem(Icons.assignment_outlined, Icons.assignment, 'Tasks'),
           _NavItem(Icons.person_outline, Icons.person, 'Profile'),
         ];
       case AppRole.teacher:
@@ -162,6 +164,9 @@ class _RoleShellState extends State<RoleShell> {
     }
     if (widget.user.role == AppRole.student && item.label == 'Practice') {
       return PracticePage(userId: widget.user.id);
+    }
+    if (widget.user.role == AppRole.student && item.label == 'Tasks') {
+      return AssignmentsPage(userId: widget.user.id);
     }
     return _Page(title: item.label, role: widget.user.role);
   }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/grammar_lesson.dart';
 import '../models/vocabulary_word.dart';
@@ -20,9 +21,24 @@ extension on _PracticeMode {
 }
 
 class PracticePage extends StatefulWidget {
-  const PracticePage({super.key, required this.userId});
+  const PracticePage({
+    super.key,
+    required this.userId,
+    this.assignmentId,
+    this.assignmentTitle,
+    this.assignmentTargetCount,
+    this.assignmentDone = 0,
+    this.assignmentCorrect = 0,
+    this.assignmentSkill,
+  });
 
   final String userId;
+  final int? assignmentId;
+  final String? assignmentTitle;
+  final int? assignmentTargetCount;
+  final int assignmentDone;
+  final int assignmentCorrect;
+  final String? assignmentSkill;
 
   @override
   State<PracticePage> createState() => _PracticePageState();
@@ -42,10 +58,48 @@ class _PracticePageState extends State<PracticePage> {
   bool _finished = false;
   bool _savingProgress = false;
   bool _progressSaveFailed = false;
+  bool _assignmentSyncFailed = false;
+  String? _assignmentNotice;
+  int? _pendingAssignmentDone;
+  int? _pendingAssignmentCorrect;
+  late int _assignmentDoneNow;
+  late int _assignmentCorrectNow;
+
+  List<_PracticeMode> get _availableModes {
+    if (widget.assignmentId == null) return _PracticeMode.values;
+    final skill = widget.assignmentSkill?.toLowerCase() ?? '';
+    if (skill.contains('grammar')) return const [_PracticeMode.grammar];
+    if (skill.contains('article')) return const [_PracticeMode.articles];
+    if (skill.contains('vocab') || skill.contains('word')) {
+      return const [_PracticeMode.germanToEnglish, _PracticeMode.englishToGerman];
+    }
+    return _PracticeMode.values;
+  }
+
+  _PracticeMode _modeForSkill(String? skillValue) {
+    final skill = skillValue?.toLowerCase() ?? '';
+    if (skill.contains('article')) return _PracticeMode.articles;
+    if (skill.contains('vocab') || skill.contains('word') || skill == 'de-en') {
+      return _PracticeMode.germanToEnglish;
+    }
+    return _PracticeMode.grammar;
+  }
+
+  String? get _progressNotice {
+    final notices = <String>[];
+    if (_progressSaveFailed) {
+      notices.add('The round finished, but local progress could not be saved.');
+    }
+    if (_assignmentNotice != null) notices.add(_assignmentNotice!);
+    return notices.isEmpty ? null : notices.join('\\n');
+  }
 
   @override
   void initState() {
     super.initState();
+    _assignmentDoneNow = widget.assignmentDone;
+    _assignmentCorrectNow = widget.assignmentCorrect;
+    if (widget.assignmentId != null) _mode = _modeForSkill(widget.assignmentSkill);
     _loadLibrary();
   }
 
@@ -89,6 +143,10 @@ class _PracticePageState extends State<PracticePage> {
     _finished = false;
     _savingProgress = false;
     _progressSaveFailed = false;
+    _assignmentSyncFailed = false;
+    _assignmentNotice = null;
+    _pendingAssignmentDone = null;
+    _pendingAssignmentCorrect = null;
   }
 
   void _changeMode(_PracticeMode mode) {
@@ -193,7 +251,10 @@ class _PracticePageState extends State<PracticePage> {
     }
 
     pool.shuffle(_random);
-    return pool.take(math.min(10, pool.length)).toList();
+    final remaining = widget.assignmentId == null
+        ? 10
+        : math.max(0, (widget.assignmentTargetCount ?? 10) - _assignmentDoneNow);
+    return pool.take(math.min(math.min(10, remaining), pool.length)).toList();
   }
 
   void _selectAnswer(int index) {
@@ -205,29 +266,101 @@ class _PracticePageState extends State<PracticePage> {
   }
 
   Future<void> _nextQuestion() async {
-    if (_questionIndex >= _questions.length - 1) {
-      setState(() => _savingProgress = true);
-      var saveFailed = false;
-      try {
-        await ProgressService(widget.userId).recordSession(
-          mode: _mode.label,
-          level: _level,
-          correct: _score,
-          total: _questions.length,
-        );
-      } catch (_) {
-        saveFailed = true;
-      }
-      if (!mounted) return;
-      setState(() {
-        _finished = true;
-        _savingProgress = false;
-        _progressSaveFailed = saveFailed;
-      });
-    } else {
+    if (_questionIndex < _questions.length - 1) {
       setState(() {
         _questionIndex++;
         _selectedIndex = null;
+      });
+      return;
+    }
+
+    setState(() => _savingProgress = true);
+    var saveFailed = false;
+    try {
+      await ProgressService(widget.userId).recordSession(
+        mode: _mode.label,
+        level: _level,
+        correct: _score,
+        total: _questions.length,
+      );
+    } catch (_) {
+      saveFailed = true;
+    }
+
+    int? pendingDone;
+    int? pendingCorrect;
+    var assignmentSyncFailed = false;
+    String? assignmentNotice;
+    if (widget.assignmentId != null && widget.assignmentTargetCount != null) {
+      final doneForSync = math.min(
+        widget.assignmentTargetCount!,
+        _assignmentDoneNow + _questions.length,
+      );
+      final correctForSync = math.min(doneForSync, _assignmentCorrectNow + _score);
+      pendingDone = doneForSync;
+      pendingCorrect = correctForSync;
+      try {
+        await _writeAssignmentProgress(doneForSync, correctForSync);
+        assignmentNotice = doneForSync >= widget.assignmentTargetCount!
+            ? 'Assignment completed and reported to your account.'
+            : 'Assignment progress saved to your account.';
+      } catch (_) {
+        assignmentSyncFailed = true;
+        assignmentNotice = 'Assignment progress is not synced yet. Reconnect and retry.';
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _finished = true;
+      _savingProgress = false;
+      _progressSaveFailed = saveFailed;
+      _assignmentSyncFailed = assignmentSyncFailed;
+      _pendingAssignmentDone = pendingDone;
+      _pendingAssignmentCorrect = pendingCorrect;
+      _assignmentNotice = assignmentNotice;
+      if (!assignmentSyncFailed && pendingDone != null && pendingCorrect != null) {
+        _assignmentDoneNow = pendingDone;
+        _assignmentCorrectNow = pendingCorrect;
+      }
+    });
+  }
+
+  Future<void> _writeAssignmentProgress(int done, int correct) async {
+    final assignmentId = widget.assignmentId;
+    if (assignmentId == null) return;
+    await Supabase.instance.client.rpc(
+      'update_assignment_progress',
+      params: {
+        'p_assignment': assignmentId,
+        'p_done': done,
+        'p_correct': correct,
+      },
+    );
+  }
+
+  Future<void> _retryAssignmentSync() async {
+    final done = _pendingAssignmentDone;
+    final correct = _pendingAssignmentCorrect;
+    if (!_assignmentSyncFailed || done == null || correct == null) return;
+    setState(() => _savingProgress = true);
+    try {
+      await _writeAssignmentProgress(done, correct);
+      if (!mounted) return;
+      setState(() {
+        _savingProgress = false;
+        _assignmentSyncFailed = false;
+        _assignmentDoneNow = done;
+        _assignmentCorrectNow = correct;
+        _assignmentNotice = done >= (widget.assignmentTargetCount ?? done)
+            ? 'Assignment completed and reported to your account.'
+            : 'Assignment progress saved to your account.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _savingProgress = false;
+        _assignmentNotice = 'Still unable to sync. Check the connection and retry.';
       });
     }
   }
@@ -243,10 +376,12 @@ class _PracticePageState extends State<PracticePage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
       children: [
-        Text('Practice', style: theme.textTheme.headlineMedium),
+        Text(widget.assignmentTitle ?? 'Practice', style: theme.textTheme.headlineMedium),
         const SizedBox(height: 6),
         Text(
-          'Short offline rounds to strengthen grammar and vocabulary.',
+          widget.assignmentId == null
+              ? 'Short offline rounds to strengthen grammar and vocabulary.'
+              : 'Complete the questions below. Progress is saved locally and synced to your account when connected.',
           style: theme.textTheme.bodyLarge,
         ),
         const SizedBox(height: 16),
@@ -256,7 +391,7 @@ class _PracticePageState extends State<PracticePage> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final mode in _PracticeMode.values)
+            for (final mode in _availableModes)
               ChoiceChip(
                 label: Text(mode.label),
                 selected: _mode == mode,
@@ -302,9 +437,22 @@ class _PracticePageState extends State<PracticePage> {
           _RoundSummary(
             score: _score,
             total: _questions.length,
-            progressNotice: _progressSaveFailed ? 'Round finished, but local progress could not be saved.' : null,
+            progressNotice: _progressNotice,
+            retryLoading: _savingProgress,
+            onRetryAssignment: _assignmentSyncFailed ? _retryAssignmentSync : null,
+            restartLabel: widget.assignmentId != null &&
+                    !_assignmentSyncFailed &&
+                    _assignmentDoneNow >= (widget.assignmentTargetCount ?? 0)
+                ? 'Return to assignment'
+                : 'Start a new round',
             onRestart: () {
-              setState(() => _resetRound(library));
+              if (widget.assignmentId != null &&
+                  !_assignmentSyncFailed &&
+                  _assignmentDoneNow >= (widget.assignmentTargetCount ?? 0)) {
+                Navigator.of(context).pop();
+              } else {
+                setState(() => _resetRound(library));
+              }
             },
           )
         else
@@ -451,12 +599,18 @@ class _RoundSummary extends StatelessWidget {
     required this.total,
     required this.onRestart,
     this.progressNotice,
+    this.onRetryAssignment,
+    this.retryLoading = false,
+    this.restartLabel = 'Start a new round',
   });
 
   final int score;
   final int total;
   final VoidCallback onRestart;
   final String? progressNotice;
+  final VoidCallback? onRetryAssignment;
+  final bool retryLoading;
+  final String restartLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -495,13 +649,30 @@ class _RoundSummary extends StatelessWidget {
               const SizedBox(height: 8),
               Text(progressNotice!, textAlign: TextAlign.center),
             ],
+            if (onRetryAssignment != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: retryLoading ? null : onRetryAssignment,
+                  icon: retryLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_sync_outlined),
+                  label: const Text('Retry assignment sync'),
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: onRestart,
+                onPressed: onRetryAssignment != null ? null : onRestart,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Start a new round'),
+                label: Text(restartLabel),
               ),
             ),
           ],
