@@ -12,6 +12,8 @@ import 'pages/assignments_page.dart';
 import 'pages/student_dashboard_page.dart';
 import 'pages/teacher_pages.dart';
 import 'pages/admin_pages.dart';
+import 'pages/notification_center_page.dart';
+import 'services/notification_service.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
@@ -129,6 +131,40 @@ class RoleShell extends StatefulWidget {
 
 class _RoleShellState extends State<RoleShell> {
   int index = 0;
+  late NotificationService _notificationService;
+  late Future<List<AppNotification>> _notificationFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationService = NotificationService(Supabase.instance.client, widget.user.id);
+    _loadNotifications();
+  }
+
+  @override
+  void didUpdateWidget(covariant RoleShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.user.id != widget.user.id) {
+      _notificationService = NotificationService(Supabase.instance.client, widget.user.id);
+      _loadNotifications();
+    }
+  }
+
+  void _loadNotifications() {
+    _notificationFuture = _notificationService.load();
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationCenterPage(
+          userId: widget.user.id,
+          includeProgressSync: widget.user.role == AppRole.student,
+        ),
+      ),
+    );
+    if (mounted) setState(_loadNotifications);
+  }
 
   List<_NavItem> get items {
     switch (widget.user.role) {
@@ -201,6 +237,21 @@ class _RoleShellState extends State<RoleShell> {
         titleSpacing: 16,
         title: const Text('Sprachtreppe', overflow: TextOverflow.ellipsis),
         actions: [
+          FutureBuilder<List<AppNotification>>(
+            future: _notificationFuture,
+            builder: (context, snapshot) {
+              final unread = snapshot.data?.where((item) => !item.isRead).length ?? 0;
+              return IconButton(
+                tooltip: unread == 0 ? 'Notifications' : '$unread unread notifications',
+                onPressed: _openNotifications,
+                icon: Badge(
+                  isLabelVisible: unread > 0,
+                  label: Text(unread > 99 ? '99+' : '$unread'),
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: PopupMenuButton<String>(
