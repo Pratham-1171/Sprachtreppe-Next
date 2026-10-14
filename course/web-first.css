@@ -1,0 +1,24 @@
+/* Sprachtreppe Next — browser-first desktop layer */
+:root{--max-w:1320px;--pad-x:clamp(18px,3vw,42px)}
+body{background:var(--bg)}
+header{height:64px;padding-left:var(--pad-x);padding-right:var(--pad-x)}
+.logo{font-size:17px}
+nav .inner{justify-content:center;max-width:1320px;margin:0 auto}
+main{padding-top:28px;padding-bottom:36px}
+main>.card:first-child{border-radius:18px}
+.card{transition:box-shadow .16s,border-color .16s}
+.card:hover{border-color:color-mix(in srgb,var(--accent) 28%,var(--line))}
+.grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.tile{min-height:118px;padding:18px}
+.tile .t-name{font-size:15px}
+.tile .t-desc{font-size:12px}
+.stats{grid-template-columns:repeat(4,minmax(120px,1fr))}
+.today-dash{padding:24px;border-radius:18px}
+footer{margin-top:36px}
+.passage,.qa{max-width:900px}
+.flash-wrap{max-width:620px}
+.table-wrap,.table-scroll{max-width:100%;overflow-x:auto}
+table{max-width:100%}
+#spAuth .sp-card,#spLock .sp-card{width:min(460px,100%);padding:28px}
+@media (min-width:1100px){header{gap:12px}nav button{padding-left:14px;padding-right:14px}main{min-height:calc(100dvh - 130px)}}
+@media (max-width:760px){:root{--pad-x:14px}header{height:58px}.logo{font-size:14px}.logo span{display:none}main{padding-top:16px}.stats{grid-template-columns:repeat(2,minmax(120px,1fr))}.grid{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}}
