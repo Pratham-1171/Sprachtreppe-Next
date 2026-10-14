@@ -89,7 +89,7 @@ theme = (root / 'course/theme.css').read_text(encoding='utf-8')
 shim = (root / 'course/native-shim.js').read_text(encoding='utf-8')
 cfg_js = 'window.SP_CONFIG=' + json.dumps(config) + ';\n'
 src = src.replace('<!-- COURSE_BASE_CSS -->', '<style>' + base_css + '</style>', 1)
-src = src.replace('</head>', '<style>' + theme + '</style><style id="spWebFirst">' + web_css + '</style><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#6d28d9"></head>', 1)
+src = src.replace('</head>', '<style>' + theme + '</style><style id="spWebFirst">' + web_css + '</style><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#315f52"></head>', 1)
 patch_app("$('#themeBtn').onclick =", cfg_js + '\n'.join(parts) + "\n$('#themeBtn').onclick =", 1)
 src = src.replace('<!-- COURSE_APP_SCRIPT -->', '<script>' + app_src + '</script>', 1)
 i = src.rindex('</body>')

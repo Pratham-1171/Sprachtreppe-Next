@@ -42,6 +42,20 @@ async function attemptForbiddenRoute(w, route) {
   return w.location.hash;
 }
 
+
+test('staff workspace inherits the shared Sprachtreppe theme without replacing its palette', async () => {
+  const server = createServer();
+  server.addUser('teacher-theme@school.org', PW, {role: 'teacher', approved: true, name: 'Theme Test'});
+  const {window: w, errors} = boot(server);
+  await login(w, 'teacher-theme@school.org');
+  await wait(500);
+  const css = w.document.querySelector('#spTheme');
+  assert.ok(css, 'staff theme stylesheet is installed');
+  assert.ok(css.textContent.includes('var(--bg)'), 'staff styles use app theme variables');
+  assert.ok(!/--bg:#f4f7ff|--accent:#6d28d9|--accent:#0891b2/.test(css.textContent), 'staff styles must not redefine the app palette');
+  assert.deepEqual(realErrors(errors), []);
+});
+
 test('teachers only see classroom, assignments and announcements; learning routes redirect', async () => {
   const server = createServer();
   server.addUser('teacher@school.org', PW, {role: 'teacher', approved: true, name: 'Test Teacher'});
