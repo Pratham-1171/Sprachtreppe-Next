@@ -14,7 +14,7 @@ Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed o
 - ✅ Offline practice quizzes with locally stored session history, accuracy and streaks
 - ✅ Last-approved profile cache for restoring the learning UI after recognized network failures (CI passed; device verification pending)
 - ✅ Student assignment list and reading/writing submissions
-- ✅ Teacher dashboard, assigned classes and class work
+- 🚧 Teacher dashboard, assigned classes, class announcements and server-validated class assignment creation (CI verification pending)
 - ✅ Admin dashboard, student approval, class/teacher setup, assignment creation and submission review
 - 🚧 Teacher/admin in-app announcement publishing (implementation added; CI verification pending)
 - ✅ Role-aware profile page with local progress, password-reset email and sign-out controls (CI passed; device verification pending)

@@ -20,6 +20,37 @@ class TeacherWorkspaceService {
     );
   }
 
+  Future<void> createAssignment({
+    required int classId,
+    required String title,
+    required String instructions,
+    required String skill,
+    required int targetCount,
+    required DateTime? dueAt,
+  }) async {
+    final cleanTitle = title.trim();
+    final cleanInstructions = instructions.trim();
+    final cleanSkill = skill.trim();
+    if (cleanTitle.isEmpty || cleanTitle.length > 120) {
+      throw ArgumentError('Assignment title must be 1–120 characters.');
+    }
+    if (cleanInstructions.length > 2000 || cleanSkill.length > 30 ||
+        targetCount < 1 || targetCount > 1000) {
+      throw ArgumentError('Check instructions, skill and target (1–1000).');
+    }
+
+    // This server-side RPC checks staff role and validates that this teacher
+    // is assigned to the target class. It also notifies the enrolled students.
+    await _client.rpc('create_assignment', params: {
+      'p_class': classId,
+      'p_title': cleanTitle,
+      'p_instructions': cleanInstructions,
+      'p_skill': cleanSkill.isEmpty ? 'mixed' : cleanSkill,
+      'p_target': targetCount,
+      'p_due': dueAt?.toUtc().toIso8601String(),
+    });
+  }
+
   Future<void> createAnnouncement({
     required int classId,
     required String title,

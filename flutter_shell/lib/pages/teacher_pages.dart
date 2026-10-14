@@ -43,6 +43,7 @@ class _TeacherWorkspacePageState extends State<_TeacherWorkspacePage> {
   late final TeacherWorkspaceService _service;
   late Future<TeacherWorkspace> _future;
   bool _publishingAnnouncement = false;
+  bool _creatingAssignment = false;
 
   @override
   void initState() {
@@ -61,6 +62,46 @@ class _TeacherWorkspacePageState extends State<_TeacherWorkspacePage> {
       await _future;
     } catch (_) {
       // FutureBuilder shows a retryable error state.
+    }
+  }
+
+  Future<void> _createAssignment(TeacherWorkspace data) async {
+    if (_creatingAssignment || data.classes.isEmpty) return;
+    final draft = await showDialog<_TeacherAssignmentDraft>(
+      context: context,
+      builder: (_) => _TeacherAssignmentDialog(classes: data.classes),
+    );
+    if (draft == null || !mounted) return;
+
+    setState(() => _creatingAssignment = true);
+    try {
+      await _service.createAssignment(
+        classId: draft.classId,
+        title: draft.title,
+        instructions: draft.instructions,
+        skill: draft.skill,
+        targetCount: draft.targetCount,
+        dueAt: draft.dueAt,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Assignment created and students notified.')),
+      );
+      setState(_load);
+      try {
+        await _future;
+      } catch (_) {
+        // The server confirmed creation. FutureBuilder shows any refresh error.
+      }
+    } catch (error) {
+      if (!mounted) return;
+      var message = error.toString().replaceFirst('Exception: ', '').replaceFirst('Invalid argument(s): ', '');
+      if (message.length > 180) message = '${message.substring(0, 177)}…';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not create assignment: $message')),
+      );
+    } finally {
+      if (mounted) setState(() => _creatingAssignment = false);
     }
   }
 
@@ -86,7 +127,11 @@ class _TeacherWorkspacePageState extends State<_TeacherWorkspacePage> {
         const SnackBar(content: Text('Announcement published to the selected class.')),
       );
       setState(_load);
-      await _future;
+      try {
+        await _future;
+      } catch (_) {
+        // The server confirmed publication. FutureBuilder shows refresh errors.
+      }
     } catch (error) {
       if (!mounted) return;
       var message = error.toString().replaceFirst('Exception: ', '').replaceFirst('Invalid argument(s): ', '');
@@ -142,6 +187,27 @@ class _TeacherWorkspacePageState extends State<_TeacherWorkspacePage> {
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 16),
+              if (widget.section == _TeacherSection.work) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: _creatingAssignment || data.classes.isEmpty
+                        ? null
+                        : () => _createAssignment(data),
+                    icon: _creatingAssignment
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add_task),
+                    label: Text(_creatingAssignment ? 'Creating…' : 'Create class assignment'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (data.classes.isEmpty)
+                  const Text('You need an assigned class before you can create class work.'),
+              ],
               if (widget.section == _TeacherSection.classes) ...[
                 Align(
                   alignment: Alignment.centerLeft,
@@ -356,7 +422,7 @@ class _WorkContent extends StatelessWidget {
           ),
         const SizedBox(height: 8),
         const _InfoNotice(
-          message: 'This view is read-only. Assignment creation and editing require an existing privileged workflow; this screen will not show controls that the current teacher permissions cannot save.',
+          message: 'This view is read-only. Use Create class assignment above to assign practice to a class. Creation is validated by a server-side role and class-membership check.',
         ),
       ],
     );
@@ -783,6 +849,182 @@ class _TeacherAnnouncementDialogState extends State<_TeacherAnnouncementDialog> 
               );
             },
             child: const Text('Publish'),
+          ),
+        ],
+      );
+}
+
+
+class _TeacherAssignmentDraft {
+  const _TeacherAssignmentDraft({
+    required this.classId,
+    required this.title,
+    required this.instructions,
+    required this.skill,
+    required this.targetCount,
+    required this.dueAt,
+  });
+
+  final int classId;
+  final String title;
+  final String instructions;
+  final String skill;
+  final int targetCount;
+  final DateTime? dueAt;
+}
+
+class _TeacherAssignmentDialog extends StatefulWidget {
+  const _TeacherAssignmentDialog({required this.classes});
+
+  final List<TeacherClass> classes;
+
+  @override
+  State<_TeacherAssignmentDialog> createState() => _TeacherAssignmentDialogState();
+}
+
+class _TeacherAssignmentDialogState extends State<_TeacherAssignmentDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _instructions = TextEditingController();
+  final _skill = TextEditingController(text: 'grammar');
+  final _target = TextEditingController(text: '20');
+  int? _classId;
+  DateTime? _dueAt;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.classes.isNotEmpty) _classId = widget.classes.first.id;
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _instructions.dispose();
+    _skill.dispose();
+    _target.dispose();
+    super.dispose();
+  }
+
+  Future<void> _chooseDueDate() async {
+    final now = DateTime.now();
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _dueAt ?? now.add(const Duration(days: 7)),
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (selected != null && mounted) setState(() => _dueAt = selected);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Create class assignment'),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int>(
+                    initialValue: _classId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Class'),
+                    items: [
+                      for (final classroom in widget.classes)
+                        DropdownMenuItem<int>(
+                          value: classroom.id,
+                          child: Text(classroom.name, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    validator: (value) => value == null ? 'Choose a class' : null,
+                    onChanged: (value) => setState(() => _classId = value),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _title,
+                    maxLength: 120,
+                    decoration: const InputDecoration(labelText: 'Title'),
+                    validator: (value) =>
+                        (value?.trim().isEmpty ?? true) ? 'Enter an assignment title' : null,
+                  ),
+                  TextFormField(
+                    controller: _instructions,
+                    minLines: 2,
+                    maxLines: 4,
+                    maxLength: 2000,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Instructions',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  TextFormField(
+                    controller: _skill,
+                    maxLength: 30,
+                    decoration: const InputDecoration(
+                      labelText: 'Skill',
+                      hintText: 'grammar, vocabulary or reading',
+                    ),
+                  ),
+                  TextFormField(
+                    controller: _target,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Target questions/items'),
+                    validator: (value) {
+                      final target = int.tryParse(value ?? '');
+                      return target == null || target < 1 || target > 1000
+                          ? 'Enter a number from 1 to 1000'
+                          : null;
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: _chooseDueDate,
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(_dueAt == null ? 'Optional deadline' : 'Due ${_dateLabel(_dueAt!)}'),
+                    ),
+                  ),
+                  if (_dueAt != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => setState(() => _dueAt = null),
+                        child: const Text('Remove deadline'),
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'The server validates that you are assigned to the selected class.',
+                    textAlign: TextAlign.start,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              if (!_formKey.currentState!.validate() || _classId == null) return;
+              Navigator.pop(
+                context,
+                _TeacherAssignmentDraft(
+                  classId: _classId!,
+                  title: _title.text.trim(),
+                  instructions: _instructions.text.trim(),
+                  skill: _skill.text.trim(),
+                  targetCount: int.parse(_target.text),
+                  dueAt: _dueAt,
+                ),
+              );
+            },
+            child: const Text('Create assignment'),
           ),
         ],
       );
