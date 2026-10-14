@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'models/app_role.dart';
 import 'models/app_user.dart';
-import 'pages/course_page.dart';
+import 'pages/learn_page.dart';
 import 'pages/login_page.dart';
 import 'pages/student_dashboard_page.dart';
 import 'services/auth_service.dart';
@@ -157,7 +157,7 @@ class _RoleShellState extends State<RoleShell> {
       return StudentDashboardPage(user: widget.user);
     }
     if (widget.user.role == AppRole.student && item.label == 'Learn') {
-      return const CoursePage();
+      return const LearnPage();
     }
     return _Page(title: item.label, role: widget.user.role);
   }
