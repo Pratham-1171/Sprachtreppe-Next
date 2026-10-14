@@ -418,7 +418,7 @@ class _AssignmentCard extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     label: Text(_label(assignment.skill)),
                   ),
-                if (className != null && className.isNotEmpty)
+                if (className?.isNotEmpty == true)
                   Chip(
                     visualDensity: VisualDensity.compact,
                     avatar: const Icon(Icons.groups_outlined, size: 17),
