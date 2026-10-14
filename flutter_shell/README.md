@@ -13,7 +13,7 @@ Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed o
 - ✅ A1–B1 course outline, searchable offline vocabulary and grammar library
 - 🚧 Offline practice, assignment-progress and written-response queues for weekly sync (written-response queue under CI verification; device verification pending)
 - ✅ Last-approved profile cache for restoring the learning UI after recognized network failures (CI passed; device verification pending)
-- ✅ Student assignment list and reading/writing submissions
+- 🚧 Student assignment list with connectivity-only cache, local written-response queue and reading/writing submissions (CI verification pending)
 - ✅ Teacher dashboard, assigned classes, class announcements and server-validated class assignment creation (CI passed; device verification pending)
 - ✅ Admin dashboard, student approval, class/teacher setup, assignment creation and submission review
 - ✅ Teacher/admin in-app announcement publishing with student inbox delivery (Flutter CI passed; trigger migration applied; device verification pending)

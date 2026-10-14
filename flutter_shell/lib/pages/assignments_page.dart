@@ -80,6 +80,12 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
             children: [
               Text('Assignments', style: theme.textTheme.headlineMedium),
               const SizedBox(height: 6),
+              if (_service.lastLoadUsedCache) ...[
+                const _Notice(
+                  'Showing assignments saved on this device. Connect to refresh the list and confirm current access.',
+                ),
+                const SizedBox(height: 8),
+              ],
               Text('Tasks, deadlines and completion status.', style: theme.textTheme.bodyLarge),
               const SizedBox(height: 14),
               Row(children: [
