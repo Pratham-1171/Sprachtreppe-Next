@@ -1,0 +1,1381 @@
+{
+  "sections": [
+    {
+      "level": "A1",
+      "title": "Foundation",
+      "lessons": [
+        {
+          "title": "sein & haben",
+          "explanation": "Irregular; used in almost every sentence.",
+          "rule": "sein             haben\nich bin          ich habe\ndu bist          du hast\ner/sie/es ist    er/sie/es hat\nwir sind         wir haben\nihr seid         ihr habt\nsie/Sie sind     sie/Sie haben",
+          "examples": [
+            [
+              "Ich bin müde.",
+              "I am tired."
+            ],
+            [
+              "Wir sind aus Indien.",
+              "We are from India."
+            ],
+            [
+              "Er hat einen Hund.",
+              "He has a dog."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Ich bin 25 Jahre.",
+              "✅ Ich bin 25 Jahre alt."
+            ],
+            [
+              "❌ Ich bin Hunger.",
+              "✅ Ich habe Hunger."
+            ]
+          ],
+          "exercise": {
+            "q": "Complete: \"Wir ___ aus Deutschland.\"",
+            "options": [
+              "seid",
+              "sind",
+              "bin",
+              "ist"
+            ],
+            "correct": 1,
+            "why": "wir → sind"
+          },
+          "level": "A1",
+          "guide": {
+            "when": "Use sein for identity, origin, location, age-style descriptions with alt, and states. Use haben for possession and many fixed expressions such as Hunger, Durst and Zeit.",
+            "steps": [
+              "Choose the subject pronoun first.",
+              "Memorise the irregular present form for that person.",
+              "Add the adjective or noun phrase after the verb."
+            ],
+            "tip": "Say “Ich bin 20 Jahre alt”, but “Ich habe Hunger”. German does not use one English-style “to be” pattern for every expression.",
+            "contrast": "sein describes what or how someone is; haben says what someone has or experiences."
+          }
+        },
+        {
+          "title": "Präsens (regular)",
+          "explanation": "Stem + endings.",
+          "rule": "machen → mach-\nich mache   du machst   er macht\nwir machen  ihr macht   sie machen",
+          "examples": [
+            [
+              "Ich mache Hausaufgaben.",
+              "I do homework."
+            ],
+            [
+              "Du spielst Fußball.",
+              "You play soccer."
+            ],
+            [
+              "Wir lernen Deutsch.",
+              "We learn German."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Ich machen Hausaufgaben.",
+              "✅ Ich mache Hausaufgaben."
+            ]
+          ],
+          "exercise": {
+            "q": "Complete: \"Du ___ gern Musik.\" (hören)",
+            "options": [
+              "höre",
+              "hörst",
+              "hört",
+              "hören"
+            ],
+            "correct": 1,
+            "why": "du → hörst"
+          },
+          "level": "A1",
+          "guide": {
+            "when": "Use Präsens for habits, facts, routines and many future plans when the time is clear.",
+            "steps": [
+              "Remove -en from the infinitive: mach-en → mach-.",
+              "Add -e, -st, -t, -en, -t, -en.",
+              "For du and er/sie/es, check special spelling and stem changes in common verbs."
+            ],
+            "tip": "The verb ending must match the subject. Do not put the infinitive in a normal main clause.",
+            "contrast": "Ich lerne Deutsch. / Morgen lerne ich auch Deutsch. The time word changes the position of the subject, not the verb’s second-position rule."
+          }
+        },
+        {
+          "title": "Articles — der/die/das",
+          "explanation": "Every noun has a gender.",
+          "rule": "der → masculine\ndie → feminine\ndas → neuter\ndie → plural",
+          "examples": [
+            [
+              "Der Mann liest.",
+              "The man reads."
+            ],
+            [
+              "Die Frau trinkt Kaffee.",
+              "The woman drinks coffee."
+            ],
+            [
+              "Das Kind spielt.",
+              "The child plays."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Der Frau ist müde.",
+              "✅ Die Frau ist müde."
+            ]
+          ],
+          "exercise": {
+            "q": "Which article with \"Mädchen\"?",
+            "options": [
+              "der",
+              "die",
+              "das"
+            ],
+            "correct": 2,
+            "why": "-chen → neuter"
+          },
+          "level": "A1",
+          "guide": {
+            "when": "Learn each noun together with its article and plural form. Article gender is grammatical, not always logical.",
+            "steps": [
+              "Use der for masculine nouns, die for feminine nouns, das for neuter nouns.",
+              "Use die for all plural nouns.",
+              "Learn common clues such as -ung and -heit (often feminine) and -chen (neuter), but memorise exceptions."
+            ],
+            "tip": "Flashcards should show “der Tisch, die Tische”, not only “Tisch”.",
+            "contrast": "A grammatical gender does not tell you a person’s real-world gender: das Mädchen is neuter because of the ending -chen."
+          }
+        },
+        {
+          "title": "Akkusativ",
+          "explanation": "Direct object; only masculine changes.",
+          "rule": "der → den    ein → einen\ndie → die    eine → eine\ndas → das    ein  → ein",
+          "examples": [
+            [
+              "Ich sehe den Mann.",
+              "I see the man."
+            ],
+            [
+              "Ich kaufe einen Apfel.",
+              "I buy an apple."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Ich sehe der Mann.",
+              "✅ Ich sehe den Mann."
+            ]
+          ],
+          "exercise": {
+            "q": "Complete: \"Er kauft ___ Computer.\"",
+            "options": [
+              "der",
+              "den",
+              "dem",
+              "des"
+            ],
+            "correct": 1,
+            "why": "Akk. masc → den"
+          },
+          "level": "A1",
+          "guide": {
+            "when": "Use accusative mainly for the direct object: the person or thing directly affected by the action. Also learn accusative after common prepositions such as für, ohne, durch, gegen and um.",
+            "steps": [
+              "Find the subject and conjugated verb.",
+              "Ask “wen oder was?” to find the direct object.",
+              "Change masculine der/ein to den/einen; feminine, neuter and plural forms usually look the same in the article."
+            ],
+            "tip": "The visible change is easiest to notice with masculine nouns: Ich sehe den Hund.",
+            "contrast": "Ich helfe dem Mann uses dative because helfen takes dative; Ich sehe den Mann uses accusative."
+          }
+        },
+        {
+          "title": "Dativ",
+          "explanation": "Indirect object + certain verbs.",
+          "rule": "der → dem   die → der\ndas → dem   die(pl) → den +n\n\nDativ verbs: helfen, danken, gefallen",
+          "examples": [
+            [
+              "Ich gebe dem Mann das Buch.",
+              "I give the man the book."
+            ],
+            [
+              "Ich helfe meiner Mutter.",
+              "I help my mother."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Ich helfe mein Freund.",
+              "✅ Ich helfe meinem Freund."
+            ]
+          ],
+          "exercise": {
+            "q": "Complete: \"Ich helfe ___ Frau.\"",
+            "options": [
+              "die",
+              "der",
+              "den",
+              "das"
+            ],
+            "correct": 1,
+            "why": "helfen + Dativ"
+          },
+          "level": "A1",
+          "guide": {
+            "when": "Use dative with the recipient in many giving sentences, after dative verbs such as helfen and danken, and after dative prepositions such as mit, nach, bei, seit, von, zu and aus.",
+            "steps": [
+              "Learn the verb or preposition together with its case.",
+              "Change der/ein to dem/einem, die/eine to der/einer, and plural die to den plus often -n on the noun.",
+              "Check if a dative noun already ends in -n or -s before adding another ending."
+            ],
+            "tip": "Memorise chunks: mit dem Bus, bei meiner Freundin, mit meinen Freunden.",
+            "contrast": "Case follows the governing verb or preposition, not English word order."
+          }
+        },
+        {
+          "title": "Modal verbs",
+          "explanation": "Ability, necessity, permission.",
+          "rule": "können, müssen, wollen, sollen, dürfen, mögen\nIch muss heute arbeiten.",
+          "examples": [
+            [
+              "Ich muss heute arbeiten.",
+              "I have to work today."
+            ],
+            [
+              "Kannst du mir helfen?",
+              "Can you help me?"
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Ich muss arbeiten heute.",
+              "✅ Ich muss heute arbeiten."
+            ]
+          ],
+          "exercise": {
+            "q": "Which is correct?",
+            "options": [
+              "Ich muss gehen nach Hause.",
+              "Ich muss nach Hause gehen."
+            ],
+            "correct": 1,
+            "why": "Modal pos 2, inf at end"
+          },
+          "level": "A1",
+          "guide": {
+            "when": "Use können, müssen, wollen, sollen, dürfen and mögen/möchten to express ability, necessity, intention, advice, permission and preference.",
+            "steps": [
+              "Conjugate the modal verb in position 2.",
+              "Keep the main verb in the infinitive at the end.",
+              "In a question, move the modal verb to position 1."
+            ],
+            "tip": "Ich muss heute lernen. “lernen” stays at the end even when a time phrase is added.",
+            "contrast": "dürfen = be allowed to; müssen = have to; sollen = should / be expected to."
+          }
+        },
+        {
+          "title": "Perfekt",
+          "explanation": "Spoken past: haben/sein + Partizip II.",
+          "rule": "Regular: ge- + stem + -t\nmachen → gemacht\n\nIrregular: ge- + (changed) + -en\nsprechen → gesprochen\n\nSeparable: prefix + ge- + stem\nanrufen → angerufen",
+          "examples": [
+            [
+              "Ich habe gestern gearbeitet.",
+              "I worked yesterday."
+            ],
+            [
+              "Er ist nach Berlin gefahren.",
+              "He went to Berlin."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Ich habe nach Berlin gefahren.",
+              "✅ Ich bin nach Berlin gefahren."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Wir ___ gestern ins Kino ___.\"",
+            "options": [
+              "haben / gegangen",
+              "sind / gegangen",
+              "sind / gegeht"
+            ],
+            "correct": 1,
+            "why": "gehen → sein"
+          },
+          "level": "A1",
+          "guide": {
+            "when": "Use Perfekt for most conversations about completed past events. Many movement or change-of-state verbs use sein; most other verbs use haben.",
+            "steps": [
+              "Choose haben or sein from the verb and its meaning.",
+              "Build the Partizip II: often ge- + stem + -t for regular verbs, or an irregular participle.",
+              "Keep the participle at the end of the clause."
+            ],
+            "tip": "Movement alone is not the only test; compare Ich habe den Bus gefahren (I drove the bus) with Ich bin nach Hause gefahren (I travelled home).",
+            "contrast": "Regular: gemacht. Irregular: gegangen. Separable: aufgestanden. Inseparable prefixes and verbs ending in -ieren normally have no ge-."
+          }
+        },
+        {
+          "title": "Word order — position 2",
+          "explanation": "Verb is always in position 2 in a main clause.",
+          "rule": "Position:  1     2      3       4\nStandard:  Ich   fahre  heute   nach Berlin.\nInverted:  Heute fahre  ich     nach Berlin.",
+          "examples": [
+            [
+              "Ich fahre heute mit dem Bus.",
+              "I go by bus today."
+            ],
+            [
+              "Heute fahre ich mit dem Bus.",
+              "Today I go by bus."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Heute ich fahre mit dem Bus.",
+              "✅ Heute fahre ich mit dem Bus."
+            ]
+          ],
+          "exercise": {
+            "q": "Which is correct?",
+            "options": [
+              "Morgen ich gehe ins Kino.",
+              "Morgen gehe ich ins Kino."
+            ],
+            "correct": 1,
+            "why": "Verb position 2"
+          },
+          "level": "A1",
+          "guide": {
+            "when": "In a normal main clause, the conjugated verb occupies the second sentence position. Position counts units, not individual words.",
+            "steps": [
+              "Choose one unit to place first: subject, time, place or object.",
+              "Put the conjugated verb next.",
+              "Place the subject after the verb if another unit starts the sentence."
+            ],
+            "tip": "Heute fahre ich nach Hause. “Heute” is position 1 and “fahre” is position 2.",
+            "contrast": "A question with yes/no answer has the verb first: Fährst du heute? A subordinate clause sends the finite verb to the end."
+          }
+        }
+      ]
+    },
+    {
+      "level": "A2",
+      "title": "Intermediate",
+      "lessons": [
+        {
+          "title": "Possessives in Dativ",
+          "explanation": "mein/dein/sein… change like \"ein\".",
+          "rule": "masc/neut → -em\nfem → -er\nplural → -en",
+          "examples": [
+            [
+              "Ich fahre mit meinem Bruder.",
+              "With my brother."
+            ],
+            [
+              "Ich spreche mit meiner Schwester.",
+              "With my sister."
+            ],
+            [
+              "Ich fahre mit meinen Freunden.",
+              "With my friends."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ mit mein Bruder",
+              "✅ mit meinem Bruder"
+            ]
+          ],
+          "exercise": {
+            "q": "\"Ich spreche mit ___ Lehrerin.\"",
+            "options": [
+              "mein",
+              "meine",
+              "meiner",
+              "meinen"
+            ],
+            "correct": 2,
+            "why": "fem → meiner"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Possessive words mein, dein, sein, ihr, unser, euer and Ihr take endings similar to ein after dative prepositions and dative verbs.",
+            "steps": [
+              "Identify the noun’s gender and number.",
+              "Apply the dative ending: masculine/neuter -em, feminine -er, plural -en.",
+              "Remember that the plural noun often receives an extra -n if possible."
+            ],
+            "tip": "Read the whole phrase aloud: mit meinem Bruder, mit meiner Schwester, mit meinen Freunden."
+          }
+        },
+        {
+          "title": "weil — reason",
+          "explanation": "Verb goes to the end.",
+          "rule": "Main + , + weil + Subj + ... + Verb (end)",
+          "examples": [
+            [
+              "Ich bleibe zu Hause, weil ich krank bin.",
+              "I stay home because I am ill."
+            ],
+            [
+              "Er kommt nicht, weil er arbeiten muss.",
+              "He is not coming because he has to work."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ weil ich bin krank.",
+              "✅ weil ich krank bin."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Ich lerne Deutsch, weil ich in Berlin ___.\"",
+            "options": [
+              "wohne",
+              "ich wohne",
+              "wohnen"
+            ],
+            "correct": 0,
+            "why": "Verb at end"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use weil to explain why something happens. It introduces a subordinate clause, so the conjugated verb goes to the end.",
+            "steps": [
+              "Write the main clause.",
+              "Add a comma and weil.",
+              "Place the subject and other clause information before the conjugated verb at the end."
+            ],
+            "tip": "The same rule applies when the verb is a modal: weil ich heute arbeiten muss.",
+            "contrast": "weil ich krank bin (verb at end) vs. denn ich bin krank (main-clause word order)."
+          }
+        },
+        {
+          "title": "dass — reported info",
+          "explanation": "Verb at end.",
+          "rule": "Main + , + dass + Subj + ... + Verb (end)",
+          "examples": [
+            [
+              "Ich weiß, dass er heute arbeitet.",
+              "I know that he works today."
+            ],
+            [
+              "Sie sagt, dass sie morgen kommt.",
+              "She says she is coming tomorrow."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ dass er kommt heute.",
+              "✅ dass er heute kommt."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Sie sagt, ___ sie morgen kommt.\"",
+            "options": [
+              "das",
+              "dass",
+              "wenn"
+            ],
+            "correct": 1,
+            "why": "dass = conjunction"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use dass to report a statement, opinion, feeling or information after verbs such as sagen, denken, hoffen, glauben and wissen.",
+            "steps": [
+              "Start with the reporting clause.",
+              "Add a comma and dass.",
+              "Place the subject early and the conjugated verb at the end of the dass-clause."
+            ],
+            "tip": "The subject does not disappear after dass: Sie sagt, dass sie später kommt.",
+            "contrast": "dass introduces a clause (“that”); das is an article or demonstrative (“the/that”)."
+          }
+        },
+        {
+          "title": "wenn — condition",
+          "explanation": "if / whenever.",
+          "rule": "Wenn ich Zeit habe, gehe ich ins Kino.",
+          "examples": [
+            [
+              "Wenn ich Zeit habe, gehe ich ins Kino.",
+              "If I have time, I go to the cinema."
+            ],
+            [
+              "Wenn ich müde bin, trinke ich Kaffee.",
+              "Whenever I am tired, I drink coffee."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Wenn ich ein Kind war, ...",
+              "✅ Als ich ein Kind war, ..."
+            ]
+          ],
+          "exercise": {
+            "q": "\"___ ich Zeit habe, komme ich.\"",
+            "options": [
+              "Als",
+              "Wenn",
+              "Dass"
+            ],
+            "correct": 1,
+            "why": "Present condition → wenn"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use wenn for conditions, present/future situations and repeated events. It can mean “if” or “whenever”.",
+            "steps": [
+              "Put wenn at the start of its clause.",
+              "Move the conjugated verb to the end of that clause.",
+              "If the wenn-clause starts the sentence, place the main-clause verb immediately after the comma."
+            ],
+            "tip": "Wenn ich Zeit habe, rufe ich dich an. / Ich rufe dich an, wenn ich Zeit habe."
+          }
+        },
+        {
+          "title": "als vs. wenn",
+          "explanation": "One past situation → als. Otherwise → wenn.",
+          "rule": "als → one past situation\nwenn → present, future, conditions, repeated",
+          "examples": [
+            [
+              "Als ich ein Kind war, spielte ich Fußball.",
+              "When I was a child..."
+            ],
+            [
+              "Wenn ich in Ahmedabad bin, treffe ich Freunde.",
+              "When I am in Ahmedabad..."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Wenn ich ein Kind war, ...",
+              "✅ Als ich ein Kind war, ..."
+            ]
+          ],
+          "exercise": {
+            "q": "\"___ ich 18 war, wohnte ich in Delhi.\"",
+            "options": [
+              "Wenn",
+              "Als",
+              "Ob"
+            ],
+            "correct": 1,
+            "why": "past-specific → als"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use als for one specific situation or period in the past. Use wenn for repeated past events, present/future time, or conditions.",
+            "steps": [
+              "Ask if the event happened once in the past: choose als.",
+              "For “whenever”, “if”, now or future: choose wenn.",
+              "Remember that the verb goes to the end of both subordinate clauses."
+            ],
+            "tip": "Als ich klein war … describes one period of life. Immer wenn ich Oma besuchte … describes repetition."
+          }
+        },
+        {
+          "title": "Indirect W-questions",
+          "explanation": "W-word stays; verb to end.",
+          "rule": "Main + , + W-word + Subj + ... + Verb (end)",
+          "examples": [
+            [
+              "Ich weiß nicht, wo er wohnt.",
+              "I don't know where he lives."
+            ],
+            [
+              "Weißt du, wann der Kurs beginnt?",
+              "Do you know when the course starts?"
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ wann kommt er.",
+              "✅ wann er kommt."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Ich weiß nicht, ___ er wohnt.\"",
+            "options": [
+              "wo",
+              "wohnt",
+              "wo er"
+            ],
+            "correct": 0,
+            "why": "W-word stays"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use an indirect W-question after expressions such as Ich weiß nicht, Kannst du mir sagen …? and Ich möchte wissen …",
+            "steps": [
+              "Keep the question word (wo, wann, warum, wie, wer).",
+              "Use normal subject-before-verb order inside the indirect clause.",
+              "Put the conjugated verb at the end."
+            ],
+            "tip": "Direct: Wo wohnt er? Indirect: Ich weiß nicht, wo er wohnt."
+          }
+        },
+        {
+          "title": "ob — indirect yes/no",
+          "explanation": "Yes/no → ob.",
+          "rule": "Main + , + ob + Subj + ... + Verb (end)",
+          "examples": [
+            [
+              "Ich weiß nicht, ob er heute kommt.",
+              "I don't know whether he is coming today."
+            ],
+            [
+              "Sie fragt, ob ich Deutsch spreche.",
+              "She asks whether I speak German."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ ob kommt er.",
+              "✅ ob er kommt."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Ich weiß nicht, ___ das richtig ist.\"",
+            "options": [
+              "ob",
+              "wenn",
+              "dass"
+            ],
+            "correct": 0,
+            "why": "yes/no → ob"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use ob when the embedded question has no question word and can be answered yes or no.",
+            "steps": [
+              "Start with the main statement or question.",
+              "Add a comma and ob.",
+              "Use subject-first order, with the finite verb at the end."
+            ],
+            "tip": "Ich weiß nicht, ob sie heute kommt. Do not use wenn to translate “whether”.",
+            "contrast": "ob = whether/if in an indirect question; wenn = if/when for a condition or time."
+          }
+        },
+        {
+          "title": "deshalb — therefore",
+          "explanation": "Adverb, not subordinating.",
+          "rule": "Deshalb + Verb + Subjekt + ...",
+          "examples": [
+            [
+              "Ich habe viel gearbeitet. Deshalb bin ich müde.",
+              "I worked a lot. That's why I'm tired."
+            ],
+            [
+              "Deshalb gehe ich nach Hause.",
+              "That's why I'm going home."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Deshalb ich bin müde.",
+              "✅ Deshalb bin ich müde."
+            ]
+          ],
+          "exercise": {
+            "q": "Which is correct?",
+            "options": [
+              "Deshalb ich gehe nach Hause.",
+              "Deshalb gehe ich nach Hause."
+            ],
+            "correct": 1,
+            "why": "Verb pos 2"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use deshalb to show a result. It is an adverb, so it can stand first while the conjugated verb remains second.",
+            "steps": [
+              "Give the reason in one clause.",
+              "Start the next clause with deshalb.",
+              "Place the conjugated verb directly after deshalb, then the subject if needed."
+            ],
+            "tip": "Es regnet. Deshalb bleiben wir zu Hause.",
+            "contrast": "weil introduces a reason and puts the verb last; deshalb introduces the result and keeps main-clause order."
+          }
+        },
+        {
+          "title": "trotzdem — nevertheless",
+          "explanation": "Like deshalb.",
+          "rule": "Trotzdem + Verb + Subjekt + ...",
+          "examples": [
+            [
+              "Es regnet. Trotzdem gehe ich spazieren.",
+              "It rains. Nevertheless I go for a walk."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Trotzdem ich gehe zur Arbeit.",
+              "✅ Trotzdem gehe ich zur Arbeit."
+            ]
+          ],
+          "exercise": {
+            "q": "Which is correct?",
+            "options": [
+              "Trotzdem ich bin müde, arbeite ich.",
+              "Ich bin müde, trotzdem arbeite ich."
+            ],
+            "correct": 1,
+            "why": "Verb pos 2"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use trotzdem to show that something happens despite an obstacle or unexpected fact.",
+            "steps": [
+              "State the obstacle.",
+              "Start the next main clause with trotzdem.",
+              "Put the conjugated verb next and then the subject."
+            ],
+            "tip": "Ich bin müde. Trotzdem gehe ich zum Unterricht.",
+            "contrast": "obwohl introduces a subordinate clause (verb at end); trotzdem is an adverb (verb second)."
+          }
+        },
+        {
+          "title": "Modal verbs in Präteritum",
+          "explanation": "Simple past for modals.",
+          "rule": "können → konnte   müssen → musste\nwollen → wollte   sollen → sollte\ndürfen → durfte   mögen → mochte",
+          "examples": [
+            [
+              "Ich konnte Deutsch sprechen.",
+              "I was able to speak German."
+            ],
+            [
+              "Ich musste gestern arbeiten.",
+              "I had to work yesterday."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Ich habe gemusst arbeiten.",
+              "✅ Ich musste arbeiten."
+            ]
+          ],
+          "exercise": {
+            "q": "Präteritum of \"müssen\" (ich)?",
+            "options": [
+              "musste",
+              "müsste",
+              "gemusst"
+            ],
+            "correct": 0,
+            "why": "Drop umlaut + -te"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use modal Präteritum commonly in spoken and written stories about past necessity, ability, permission or intention.",
+            "steps": [
+              "Use the past stem: konnte, musste, wollte, sollte, durfte, mochte.",
+              "Add the normal personal ending.",
+              "Keep the dependent infinitive at the end when there is one."
+            ],
+            "tip": "Ich musste lange arbeiten. This is usually more natural than a complex Perfekt construction with two verbs."
+          }
+        },
+        {
+          "title": "könnte — polite",
+          "explanation": "Konjunktiv II of können.",
+          "rule": "ich könnte — du könntest — er könnte",
+          "examples": [
+            [
+              "Ich könnte morgen kommen.",
+              "I could come tomorrow."
+            ],
+            [
+              "Könnten Sie mir helfen?",
+              "Could you help me?"
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Kannst du mir helfen?",
+              "✅ Könntest du mir helfen?"
+            ]
+          ],
+          "exercise": {
+            "q": "\"___ Sie mir bitte helfen?\"",
+            "options": [
+              "Können",
+              "Könnten",
+              "Konnten"
+            ],
+            "correct": 1,
+            "why": "Konj II polite"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use könnte/könnten to make requests, suggestions or possibilities softer and more polite.",
+            "steps": [
+              "Use könnte for ich/er/sie/es and könnten for wir/sie/Sie.",
+              "Put the infinitive at the end if there is one.",
+              "Use bitte to make the request friendly, not demanding."
+            ],
+            "tip": "Könnten Sie mir bitte helfen? is a polite request, while Können Sie …? is more direct."
+          }
+        },
+        {
+          "title": "sollte — advice",
+          "explanation": "Should.",
+          "rule": "Subjekt + sollte + ... + Infinitiv (end)",
+          "examples": [
+            [
+              "Du solltest mehr lernen.",
+              "You should study more."
+            ],
+            [
+              "Du solltest mehr Wasser trinken.",
+              "You should drink more water."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Du sollst mehr lernen.",
+              "✅ Du solltest mehr lernen."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Du ___ mehr schlafen.\"",
+            "options": [
+              "sollst",
+              "solltest",
+              "willst"
+            ],
+            "correct": 1,
+            "why": "advice → solltest"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use sollte/solltest to give advice or say what would be sensible, rather than describing a strict obligation.",
+            "steps": [
+              "Conjugate sollte for the subject.",
+              "Place the action verb in the infinitive at the end.",
+              "Use nicht to advise against an action: Du solltest nicht so spät schlafen gehen."
+            ],
+            "tip": "müssen = necessity; sollen = instruction/expectation; sollten = advice."
+          }
+        },
+        {
+          "title": "Konjunktiv II general",
+          "explanation": "Wishes, hypotheticals.",
+          "rule": "wäre (sein)      hätte (haben)\nich wäre         ich hätte\ndu wärst         du hättest\nwürde + Infinitiv for other verbs",
+          "examples": [
+            [
+              "Ich wäre gern in Berlin.",
+              "I would like to be in Berlin."
+            ],
+            [
+              "Ich hätte gern einen Kaffee.",
+              "I would like a coffee."
+            ],
+            [
+              "Wenn ich Zeit hätte, würde ich kommen.",
+              "If I had time, I would come."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Wenn ich wäre reich...",
+              "✅ Wenn ich reich wäre..."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Wenn ich Zeit ___, würde ich kommen.\"",
+            "options": [
+              "habe",
+              "hatte",
+              "hätte"
+            ],
+            "correct": 2,
+            "why": "Unreal → hätte"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use Konjunktiv II for imaginary situations, wishes, soft requests and polite offers.",
+            "steps": [
+              "Memorise the frequent forms wäre, hätte and könnte.",
+              "For many other verbs, use würde + infinitive.",
+              "In a wenn-clause, the Konjunktiv form usually comes at the end."
+            ],
+            "tip": "Wenn ich mehr Zeit hätte, würde ich mehr lesen.",
+            "contrast": "hatte is simple past (“had”); hätte is hypothetical (“would have”)."
+          }
+        },
+        {
+          "title": "Adjective endings (def article)",
+          "explanation": "-e in a few spots; -en elsewhere.",
+          "rule": "-e in: Nom sing (all), Akk fem, Akk neut\n-en in: everything else",
+          "examples": [
+            [
+              "der kleine Hund → den kleinen Hund",
+              "the small dog"
+            ],
+            [
+              "die schöne Stadt → in der schönen Stadt",
+              "the beautiful city"
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ der neu Film",
+              "✅ der neue Film"
+            ]
+          ],
+          "exercise": {
+            "q": "\"Ich sehe den ___ Mann.\" (jung)",
+            "options": [
+              "junge",
+              "jungen",
+              "junger"
+            ],
+            "correct": 1,
+            "why": "Akk masc after den → -en"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "An adjective before a noun changes its ending after der-words such as der, dieser, jeder and welcher.",
+            "steps": [
+              "Find case, gender and number.",
+              "Notice that the article already shows many grammatical features.",
+              "Use -e in the small set of nominative singular and accusative feminine/neuter forms; use -en in most remaining forms."
+            ],
+            "tip": "Learn the whole phrase—der neue Film, den neuen Film, mit dem neuen Film—not only the ending rule."
+          }
+        },
+        {
+          "title": "Adjective endings (ein-words)",
+          "explanation": "Adj carries missing info.",
+          "rule": "Nom m → ein guter Mann\nAkk m → einen guten Mann\nNom n → ein gutes Kind",
+          "examples": [
+            [
+              "mein guter Freund",
+              "my good friend"
+            ],
+            [
+              "meinen guten Freund",
+              "my good friend (Akk)"
+            ],
+            [
+              "kein gutes Auto",
+              "no good car"
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ ein gute Mann",
+              "✅ ein guter Mann"
+            ]
+          ],
+          "exercise": {
+            "q": "\"Ich habe ___ Auto.\" (neu)",
+            "options": [
+              "ein neu",
+              "ein neues",
+              "eine neue"
+            ],
+            "correct": 1,
+            "why": "neuter → -es"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "After ein-words (ein, kein, mein, dein, sein and similar), the adjective sometimes carries the gender/case signal that the article does not show.",
+            "steps": [
+              "Find case, gender and number.",
+              "Check the article ending.",
+              "Use a strong adjective ending when the article has no ending in that position: ein guter Mann, ein gutes Kind."
+            ],
+            "tip": "Compare der gute Mann with ein guter Mann; the adjective takes -er because ein has no masculine nominative ending."
+          }
+        },
+        {
+          "title": "ohne + Akkusativ",
+          "explanation": "without → accusative.",
+          "rule": "ohne + Akkusativ",
+          "examples": [
+            [
+              "Ich gehe ohne meinen Bruder.",
+              "I go without my brother."
+            ],
+            [
+              "Kaffee ohne Zucker.",
+              "Coffee without sugar."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ ohne meinem Bruder",
+              "✅ ohne meinen Bruder"
+            ]
+          ],
+          "exercise": {
+            "q": "\"Ich komme ohne ___ Freund.\"",
+            "options": [
+              "mein",
+              "meinen",
+              "meinem"
+            ],
+            "correct": 1,
+            "why": "ohne → Akk."
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Ohne always takes accusative in standard German.",
+            "steps": [
+              "Find the noun phrase after ohne.",
+              "Use the accusative article and adjective/possessive endings.",
+              "Check masculine singular especially: ohne den/meinen alten Freund."
+            ],
+            "tip": "The English translation does not decide the German case; the preposition does."
+          }
+        },
+        {
+          "title": "mit + Dativ",
+          "explanation": "with → dative.",
+          "rule": "mit + Dativ",
+          "examples": [
+            [
+              "Ich fahre mit meinem Freund.",
+              "I travel with my friend."
+            ],
+            [
+              "Ich komme mit dem Zug.",
+              "I come by train."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ mit meinen Freund",
+              "✅ mit meinem Freund"
+            ]
+          ],
+          "exercise": {
+            "q": "\"mit ___ Freund\"",
+            "options": [
+              "meinen",
+              "meinem"
+            ],
+            "correct": 1,
+            "why": "mit → Dat."
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Mit always takes dative. It can mean “with” a person/thing or describe a means of transport.",
+            "steps": [
+              "Place mit before the noun phrase.",
+              "Change the article/possessive to dative.",
+              "For plural nouns, check whether the noun needs -n."
+            ],
+            "tip": "mit dem Zug, mit einer Freundin, mit meinen Eltern."
+          }
+        },
+        {
+          "title": "Wo / Wohin / Woher",
+          "explanation": "Three questions, three rules.",
+          "rule": "Wo?  → Dativ\nWohin? → Akkusativ\nWoher? → aus/von",
+          "examples": [
+            [
+              "Ich bin in der Schule.",
+              "I am at school."
+            ],
+            [
+              "Ich gehe in die Schule.",
+              "I go to school."
+            ],
+            [
+              "Ich lege das Buch auf den Tisch.",
+              "I put the book on the table."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Ich gehe in der Schule.",
+              "✅ Ich gehe in die Schule."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Ich gehe ___ Kino.\"",
+            "options": [
+              "in dem",
+              "im",
+              "ins"
+            ],
+            "correct": 2,
+            "why": "in das → ins"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Use wo for location, wohin for a destination, and woher for origin.",
+            "steps": [
+              "Wo? describes a fixed location and commonly takes dative with two-way prepositions.",
+              "Wohin? expresses movement towards a destination and commonly takes accusative.",
+              "Woher? often uses aus or von."
+            ],
+            "tip": "Ich bin in der Schule (where?) but Ich gehe in die Schule (to where?)."
+          }
+        },
+        {
+          "title": "Position vs placement verbs",
+          "explanation": "Position (Wo?) vs placement (Wohin?).",
+          "rule": "stehen/stellen  liegen/legen\nsitzen/setzen    hängen/hängen",
+          "examples": [
+            [
+              "Die Flasche steht auf dem Tisch. / Ich stelle die Flasche auf den Tisch.",
+              "Position / Placement"
+            ],
+            [
+              "Das Buch liegt auf dem Tisch. / Ich lege das Buch auf den Tisch.",
+              "Position / Placement"
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Die Flasche stellt auf dem Tisch.",
+              "✅ Die Flasche steht auf dem Tisch."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Ich ___ das Buch auf den Tisch.\"",
+            "options": [
+              "liege",
+              "lege"
+            ],
+            "correct": 1,
+            "why": "placement → legen"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "German often distinguishes a state/position from the action of putting or placing something.",
+            "steps": [
+              "Use stehen/liegen/sitzen/hängen for where something is.",
+              "Use stellen/legen/setzen/hängen for placing it somewhere.",
+              "With two-way prepositions, the state often uses dative and the placement action accusative."
+            ],
+            "tip": "Das Buch liegt auf dem Tisch. Ich lege das Buch auf den Tisch."
+          }
+        },
+        {
+          "title": "Dativ + Akkusativ verbs",
+          "explanation": "Person → Dativ; thing → Akkusativ.",
+          "rule": "Two nouns: Dativ before Akkusativ\nTwo pronouns: Akkusativ before Dativ",
+          "examples": [
+            [
+              "Ich gebe dem Mann das Buch.",
+              "I give the man the book."
+            ],
+            [
+              "Ich gebe es ihm.",
+              "I give it to him."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Ich gebe ihm es.",
+              "✅ Ich gebe es ihm."
+            ]
+          ],
+          "exercise": {
+            "q": "Which is correct?",
+            "options": [
+              "Ich gebe ihm es.",
+              "Ich gebe es ihm."
+            ],
+            "correct": 1,
+            "why": "Akk before Dat"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "Verbs such as geben, schicken, zeigen, erklären and schenken can use a recipient (dative) and a thing (accusative).",
+            "steps": [
+              "Identify who receives it (dative) and what is transferred (accusative).",
+              "With two full noun phrases, dative often comes first.",
+              "With two pronouns, accusative normally comes before dative: Ich gebe es ihm."
+            ],
+            "tip": "Do not confuse the person with the direct object: Ich schenke meiner Mutter einen Schal."
+          }
+        },
+        {
+          "title": "Relative clauses",
+          "explanation": "Adds info; verb to end.",
+          "rule": "Nom: der/die/das/die\nAkk: den/die/das/die\nDat: dem/der/dem/denen",
+          "examples": [
+            [
+              "Der Mann, der dort steht, ist mein Lehrer.",
+              "The man standing there is my teacher."
+            ],
+            [
+              "Die Frau, die mir hilft, ist nett.",
+              "The woman who helps me is nice."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Das Buch, der ich lese...",
+              "✅ Das Buch, das ich lese..."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Die Frau, ___ ich gesehen habe, ist nett.\"",
+            "options": [
+              "der",
+              "die",
+              "das",
+              "den"
+            ],
+            "correct": 1,
+            "why": "fem acc → die"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "A relative clause adds information about a noun without starting a new sentence.",
+            "steps": [
+              "Put a comma before the relative clause.",
+              "Choose the relative pronoun by gender/number from the noun, but choose its case from its job inside the relative clause.",
+              "Put the conjugated verb at the end."
+            ],
+            "tip": "Der Mann, den ich sehe, … uses den because the man is the direct object inside the relative clause."
+          }
+        },
+        {
+          "title": "werden — full verb",
+          "explanation": "To become / get.",
+          "rule": "Präsens: ich werde, du wirst, er wird\nPrät.: wurde     Perf.: bin geworden",
+          "examples": [
+            [
+              "Ich werde müde.",
+              "I am getting tired."
+            ],
+            [
+              "Er wird Arzt.",
+              "He is becoming a doctor."
+            ],
+            [
+              "Es wird kalt.",
+              "It is getting cold."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Er wird ein Arzt.",
+              "✅ Er wird Arzt."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Es ___ kalt.\"",
+            "options": [
+              "wird",
+              "werde",
+              "geworden"
+            ],
+            "correct": 0,
+            "why": "3sg → wird"
+          },
+          "level": "A2",
+          "guide": {
+            "when": "As a full verb, werden means “become/get”. It is also used to form the passive and Futur I, so identify which pattern is present.",
+            "steps": [
+              "Becoming: werden + adjective/noun (Er wird müde).",
+              "Futur I: werden + infinitive (Er wird später kommen).",
+              "Passive: werden + Partizip II (Das Haus wird gebaut)."
+            ],
+            "tip": "A noun after werden often describes a role or profession without ein: Sie wird Ärztin."
+          }
+        }
+      ]
+    },
+    {
+      "level": "B1",
+      "title": "Advanced",
+      "lessons": [
+        {
+          "title": "Konjunktiv II hypothetical",
+          "explanation": "Wishes, hypotheticals, polite.",
+          "rule": "würde + Infinitiv\nhätte / wäre / könnte / sollte / müsste",
+          "examples": [
+            [
+              "Ich würde gerne mitkommen.",
+              "I would like to come."
+            ],
+            [
+              "Wenn ich reich wäre, würde ich reisen.",
+              "If I were rich, I would travel."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ Wenn ich wäre reich...",
+              "✅ Wenn ich reich wäre..."
+            ]
+          ],
+          "exercise": {
+            "q": "\"Wenn ich Zeit ___, ___ ich kommen.\"",
+            "options": [
+              "hätte / würde",
+              "habe / würde",
+              "hatte / werde"
+            ],
+            "correct": 0,
+            "why": "Konj II"
+          },
+          "level": "B1",
+          "guide": {
+            "when": "Use Konjunktiv II to talk about unreal or unlikely situations, imagined consequences and polite/softened language.",
+            "steps": [
+              "Use wäre/hätte/könnte/müsste/sollte where available.",
+              "Use würde + infinitive for many other verbs.",
+              "In a hypothetical condition, put the Konjunktiv verb at the end of the wenn-clause."
+            ],
+            "tip": "Wenn ich mehr Geld hätte, würde ich eine längere Reise machen.",
+            "contrast": "A real condition uses wenn + Präsens (Wenn ich Zeit habe, komme ich); an unreal condition uses Konjunktiv II."
+          }
+        },
+        {
+          "title": "Passive voice",
+          "explanation": "Focus on action.",
+          "rule": "werden + Partizip II\nDas Haus wird gebaut.\nDas Haus wurde gebaut.\nDas Haus ist gebaut worden.",
+          "examples": [
+            [
+              "Das Haus wird gebaut.",
+              "The house is being built."
+            ],
+            [
+              "Der Brief wurde gestern geschrieben.",
+              "The letter was written yesterday."
+            ]
+          ],
+          "mistakes": [
+            [
+              "❌ ist gebaut geworden",
+              "✅ ist gebaut worden"
+            ]
+          ],
+          "exercise": {
+            "q": "\"Die Rechnung ___ gestern ___.\"",
+            "options": [
+              "wurde / bezahlt",
+              "wurde / bezahlen",
+              "ist / bezahlt"
+            ],
+            "correct": 0,
+            "why": "Passive Prät."
+          },
+          "level": "B1",
+          "guide": {
+            "when": "Use Vorgangspassiv when the action or process matters more than who performs it. The agent can be added with von + dative.",
+            "steps": [
+              "Choose the tense of werden.",
+              "Add the Partizip II at the end.",
+              "For Perfekt passive, use ist/sind + Partizip II + worden; do not use geworden in this pattern."
+            ],
+            "tip": "Aktiv: Die Firma baut das Haus. Passiv: Das Haus wird (von der Firma) gebaut.",
+            "contrast": "Vorgangspassiv describes an event; Zustandspassiv with sein describes the resulting state."
+          }
+        }
+      ]
+    }
+  ]
+}
