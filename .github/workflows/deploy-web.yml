@@ -39,7 +39,7 @@ jobs:
         with:
           enablement: true
       - name: Upload web app
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./www
 
@@ -47,6 +47,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
+      contents: read
+      actions: read
       pages: write
       id-token: write
     environment:
