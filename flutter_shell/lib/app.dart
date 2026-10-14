@@ -10,6 +10,7 @@ import 'pages/login_page.dart';
 import 'pages/practice_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/assignments_page.dart';
+import 'pages/weekly_sync_gate.dart';
 import 'pages/student_dashboard_page.dart';
 import 'pages/teacher_pages.dart';
 import 'pages/admin_pages.dart';
@@ -202,10 +203,13 @@ class _RoleShellState extends State<RoleShell> {
       return StudentDashboardPage(user: widget.user);
     }
     if (widget.user.role == AppRole.student && item.label == 'Learn') {
-      return const LearnPage();
+      return WeeklySyncGate(userId: widget.user.id, child: const LearnPage());
     }
     if (widget.user.role == AppRole.student && item.label == 'Practice') {
-      return PracticePage(userId: widget.user.id);
+      return WeeklySyncGate(
+        userId: widget.user.id,
+        child: PracticePage(userId: widget.user.id),
+      );
     }
     if (widget.user.role == AppRole.student && item.label == 'Tasks') {
       return AssignmentsPage(userId: widget.user.id);
