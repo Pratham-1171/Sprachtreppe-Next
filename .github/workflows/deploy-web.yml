@@ -31,8 +31,8 @@ jobs:
         run: npm test
       - name: Build web app
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://biqkgnkiuibckbhfsbrs.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'sb_publishable_bpD4TfJpORZR0CFdKbvRmA_hbzCNYq9' }}
         run: python3 scripts/build-course-lms.py
       - name: Setup Flutter for the desktop web client
         if: ${{ hashFiles('flutter_shell/pubspec.yaml') != '' }}
