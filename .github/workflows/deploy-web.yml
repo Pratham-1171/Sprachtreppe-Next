@@ -27,9 +27,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: npm ci
-      - name: Test course
+      - name: Test course engine
         run: npm test
-      - name: Build web-first course
+      - name: Build web app
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://biqkgnkiuibckbhfsbrs.supabase.co' }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'sb_publishable_bpD4TfJpORZR0CFdKbvRmA_hbzCNYq9' }}
