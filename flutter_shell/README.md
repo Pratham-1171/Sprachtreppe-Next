@@ -12,6 +12,7 @@ Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed o
 - ✅ Supabase-backed student dashboard with classes, assignments, announcements and local study statistics
 - ✅ A1–B1 course outline, searchable offline vocabulary and grammar library
 - ✅ Offline practice quizzes with locally stored session history, accuracy and streaks
+- 🚧 Last-approved profile cache for restoring local learning after a connectivity failure; online access still relies on Supabase and device verification is pending
 - ✅ Student assignment list and reading/writing submissions
 - ✅ Teacher dashboard, assigned classes and class work
 - ✅ Admin dashboard, student approval, class/teacher setup, assignment creation and submission review
@@ -40,6 +41,7 @@ Design for narrow Android screens first. Normal content should never require hor
 ## Safety and security
 
 - Protected server-side role checks and Supabase RLS remain the security boundary; hiding a button is not authorization.
+- The local profile cache is used only to restore the learning UI after recognized network/DNS failures. It does not grant database or RPC access, and it is cleared on sign-out or when an online profile is unapproved.
 - Never put a Supabase service-role or secret key in a mobile app.
 - Do not remove the legacy course, Capacitor project, Node build setup or course JavaScript until the corresponding Flutter replacement has passed CI, been tested on an Android device and had its Supabase behavior verified.
 - Keep main stable until the flutter-shell branch is ready for a reviewed merge.
