@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/grammar_lesson.dart';
 import '../models/vocabulary_word.dart';
 import '../services/grammar_service.dart';
+import '../services/progress_service.dart';
 import '../services/vocabulary_service.dart';
 
 enum _PracticeMode { grammar, germanToEnglish, englishToGerman, articles }
@@ -19,7 +20,9 @@ extension on _PracticeMode {
 }
 
 class PracticePage extends StatefulWidget {
-  const PracticePage({super.key});
+  const PracticePage({super.key, required this.userId});
+
+  final String userId;
 
   @override
   State<PracticePage> createState() => _PracticePageState();
@@ -37,6 +40,8 @@ class _PracticePageState extends State<PracticePage> {
   int _score = 0;
   int? _selectedIndex;
   bool _finished = false;
+  bool _savingProgress = false;
+  bool _progressSaveFailed = false;
 
   @override
   void initState() {
@@ -82,6 +87,8 @@ class _PracticePageState extends State<PracticePage> {
     _score = 0;
     _selectedIndex = null;
     _finished = false;
+    _savingProgress = false;
+    _progressSaveFailed = false;
   }
 
   void _changeMode(_PracticeMode mode) {
@@ -197,15 +204,32 @@ class _PracticePageState extends State<PracticePage> {
     });
   }
 
-  void _nextQuestion() {
-    setState(() {
-      if (_questionIndex >= _questions.length - 1) {
+  Future<void> _nextQuestion() async {
+    if (_questionIndex >= _questions.length - 1) {
+      setState(() => _savingProgress = true);
+      var saveFailed = false;
+      try {
+        await ProgressService(widget.userId).recordSession(
+          mode: _mode.label,
+          level: _level,
+          correct: _score,
+          total: _questions.length,
+        );
+      } catch (_) {
+        saveFailed = true;
+      }
+      if (!mounted) return;
+      setState(() {
         _finished = true;
-      } else {
+        _savingProgress = false;
+        _progressSaveFailed = saveFailed;
+      });
+    } else {
+      setState(() {
         _questionIndex++;
         _selectedIndex = null;
-      }
-    });
+      });
+    }
   }
 
   @override
@@ -278,6 +302,7 @@ class _PracticePageState extends State<PracticePage> {
           _RoundSummary(
             score: _score,
             total: _questions.length,
+            progressNotice: _progressSaveFailed ? 'Round finished, but local progress could not be saved.' : null,
             onRestart: () {
               setState(() => _resetRound(library));
             },
@@ -286,7 +311,7 @@ class _PracticePageState extends State<PracticePage> {
           _buildQuestionCard(theme),
         const SizedBox(height: 12),
         Text(
-          'Practice runs offline. Scores are kept for this round; syncing study progress will be added in the progress stage.',
+          'Practice runs offline. Completed rounds are saved on this device; cloud sync will be added in the offline-sync stage.',
           style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],
@@ -378,8 +403,16 @@ class _PracticePageState extends State<PracticePage> {
               ),
               const SizedBox(height: 14),
               FilledButton(
-                onPressed: _nextQuestion,
-                child: Text(_questionIndex == _questions.length - 1 ? 'See results' : 'Next question'),
+                onPressed: _savingProgress ? null : _nextQuestion,
+                child: _savingProgress
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(_questionIndex == _questions.length - 1
+                        ? 'Save round & see results'
+                        : 'Next question'),
               ),
             ],
           ],
@@ -417,11 +450,13 @@ class _RoundSummary extends StatelessWidget {
     required this.score,
     required this.total,
     required this.onRestart,
+    this.progressNotice,
   });
 
   final int score;
   final int total;
   final VoidCallback onRestart;
+  final String? progressNotice;
 
   @override
   Widget build(BuildContext context) {
@@ -456,6 +491,10 @@ class _RoundSummary extends StatelessWidget {
             Text('$percentage% correct', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
+            if (progressNotice != null) ...[
+              const SizedBox(height: 8),
+              Text(progressNotice!, textAlign: TextAlign.center),
+            ],
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,

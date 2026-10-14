@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user.dart';
 import '../services/dashboard_service.dart';
+import '../services/progress_service.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key, required this.user});
@@ -14,6 +15,7 @@ class StudentDashboardPage extends StatefulWidget {
 
 class _StudentDashboardPageState extends State<StudentDashboardPage> {
   late Future<DashboardData> _future;
+  late Future<ProgressStats> _progressFuture;
 
   @override
   void initState() {
@@ -23,11 +25,12 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
 
   void _load() {
     _future = DashboardService(Supabase.instance.client).load(widget.user.id);
+    _progressFuture = ProgressService(widget.user.id).loadStats();
   }
 
   Future<void> _refresh() async {
     setState(_load);
-    await _future;
+    await Future.wait<Object>([_future, _progressFuture]);
   }
 
   @override
@@ -55,6 +58,15 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                   style: Theme.of(context).textTheme.bodyLarge),
               const SizedBox(height: 18),
               _StatsGrid(data: data),
+              const SizedBox(height: 10),
+              FutureBuilder<ProgressStats>(
+                future: _progressFuture,
+                builder: (context, progressSnapshot) {
+                  final stats = progressSnapshot.data;
+                  if (stats == null) return const SizedBox.shrink();
+                  return _StudyProgressCard(stats: stats);
+                },
+              ),
               const SizedBox(height: 22),
               _SectionHeader(title: 'Your classes', count: data.classes.length),
               const SizedBox(height: 10),
@@ -142,6 +154,85 @@ class _StatsGrid extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _StudyProgressCard extends StatelessWidget {
+  const _StudyProgressCard({required this.stats});
+
+  final ProgressStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final last = stats.lastStudiedAt?.toLocal();
+    final lastLabel = last == null
+        ? 'Start a practice round to build your learning history.'
+        : 'Last practice: ${last.day}/${last.month}/${last.year}';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Study progress', style: theme.textTheme.titleLarge),
+                ),
+                const Icon(Icons.local_fire_department_outlined),
+                const SizedBox(width: 4),
+                Text('${stats.currentStreak}-day streak',
+                    style: theme.textTheme.labelLarge),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _ProgressMetric(label: 'Questions', value: '${stats.totalQuestions}'),
+                _ProgressMetric(label: 'Accuracy', value: '${stats.accuracyPercent}%'),
+                _ProgressMetric(label: 'Rounds', value: '${stats.totalSessions}'),
+                _ProgressMetric(label: 'Best streak', value: '${stats.bestStreak} days'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(lastLabel, style: theme.textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProgressMetric extends StatelessWidget {
+  const _ProgressMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(minWidth: 112),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: theme.textTheme.labelMedium),
+          const SizedBox(height: 3),
+          Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        ],
+      ),
     );
   }
 }

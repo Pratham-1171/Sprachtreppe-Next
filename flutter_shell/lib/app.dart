@@ -161,7 +161,7 @@ class _RoleShellState extends State<RoleShell> {
       return const LearnPage();
     }
     if (widget.user.role == AppRole.student && item.label == 'Practice') {
-      return const PracticePage();
+      return PracticePage(userId: widget.user.id);
     }
     return _Page(title: item.label, role: widget.user.role);
   }
