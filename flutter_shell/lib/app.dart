@@ -243,68 +243,109 @@ class _RoleShellState extends State<RoleShell> {
     final nav = items;
     if (index >= nav.length) index = 0;
 
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: const Text('Sprachtreppe', overflow: TextOverflow.ellipsis),
-        actions: [
-          FutureBuilder<List<AppNotification>>(
-            future: _notificationFuture,
-            builder: (context, snapshot) {
-              final unread = snapshot.data?.where((item) => !item.isRead).length ?? 0;
-              return IconButton(
-                tooltip: unread == 0 ? 'Notifications' : '$unread unread notifications',
-                onPressed: _openNotifications,
-                icon: Badge(
-                  isLabelVisible: unread > 0,
-                  label: Text(unread > 99 ? '99+' : '$unread'),
-                  child: const Icon(Icons.notifications_outlined),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Give desktop browsers a persistent side rail while keeping the
+        // compact bottom navigation on phones and narrow windows.
+        final desktop = constraints.maxWidth >= 900;
+        final extendedRail = constraints.maxWidth >= 1180;
+        final content = IndexedStack(
+          index: index,
+          children: nav.map(_pageFor).toList(),
+        );
+
+        return Scaffold(
+          appBar: AppBar(
+            titleSpacing: 16,
+            title: const Text('Sprachtreppe', overflow: TextOverflow.ellipsis),
+            actions: [
+              FutureBuilder<List<AppNotification>>(
+                future: _notificationFuture,
+                builder: (context, snapshot) {
+                  final unread = snapshot.data?.where((item) => !item.isRead).length ?? 0;
+                  return IconButton(
+                    tooltip: unread == 0 ? 'Notifications' : '$unread unread notifications',
+                    onPressed: _openNotifications,
+                    icon: Badge(
+                      isLabelVisible: unread > 0,
+                      label: Text(unread > 99 ? '99+' : '$unread'),
+                      child: const Icon(Icons.notifications_outlined),
+                    ),
+                  );
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: PopupMenuButton<String>(
+                  tooltip: 'Account',
+                  onSelected: (value) {
+                    if (value == 'signout') widget.onSignOut();
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      enabled: false,
+                      child: Text(widget.user.displayName, overflow: TextOverflow.ellipsis),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(value: 'signout', child: Text('Sign out')),
+                  ],
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(Icons.account_circle_outlined),
+                  ),
                 ),
-              );
-            },
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: PopupMenuButton<String>(
-              tooltip: 'Account',
-              onSelected: (value) {
-                if (value == 'signout') widget.onSignOut();
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  enabled: false,
-                  child: Text(widget.user.displayName, overflow: TextOverflow.ellipsis),
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: desktop ? 1600 : double.infinity,
                 ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(value: 'signout', child: Text('Sign out')),
-              ],
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Icon(Icons.account_circle_outlined),
+                child: Row(
+                  children: [
+                    if (desktop) ...[
+                      NavigationRail(
+                        extended: extendedRail,
+                        labelType: extendedRail ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+                        selectedIndex: index,
+                        onDestinationSelected: (value) => setState(() => index = value),
+                        destinations: nav
+                            .map(
+                              (item) => NavigationRailDestination(
+                                icon: Icon(item.icon),
+                                selectedIcon: Icon(item.selectedIcon),
+                                label: Text(item.label),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                      const VerticalDivider(width: 1, thickness: 1),
+                    ],
+                    Expanded(child: content),
+                  ],
+                ),
               ),
             ),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: IndexedStack(
-          index: index,
-          children: nav.map(_pageFor).toList(),
-        ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (value) => setState(() => index = value),
-        destinations: nav
-            .map(
-              (item) => NavigationDestination(
-                icon: Icon(item.icon),
-                selectedIcon: Icon(item.selectedIcon),
-                label: item.label,
-              ),
-            )
-            .toList(),
-      ),
+          bottomNavigationBar: desktop
+              ? null
+              : NavigationBar(
+                  selectedIndex: index,
+                  onDestinationSelected: (value) => setState(() => index = value),
+                  destinations: nav
+                      .map(
+                        (item) => NavigationDestination(
+                          icon: Icon(item.icon),
+                          selectedIcon: Icon(item.selectedIcon),
+                          label: item.label,
+                        ),
+                      )
+                      .toList(),
+                ),
+        );
+      },
     );
   }
 }
