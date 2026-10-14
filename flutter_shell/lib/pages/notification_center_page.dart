@@ -198,6 +198,10 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
                   ),
                   const SizedBox(height: 18),
                 ],
+                if (_notifications.lastLoadUsedCache) ...[
+                  const _OfflineInboxNotice(),
+                  const SizedBox(height: 10),
+                ],
                 Row(
                   children: [
                     Expanded(
@@ -463,4 +467,28 @@ String _pretty(String value) {
   return value.split('_').map((part) => part.isEmpty
       ? part
       : '${part.substring(0, 1).toUpperCase()}${part.substring(1).toLowerCase()}').join(' ');
+}
+
+
+class _OfflineInboxNotice extends StatelessWidget {
+  const _OfflineInboxNotice();
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.wifi_off_outlined),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Offline view: these are your last saved notifications. Connect to refresh the inbox or mark items as read.',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }

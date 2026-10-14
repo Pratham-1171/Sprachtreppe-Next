@@ -9,17 +9,17 @@ Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed o
 ## Current migration status
 
 - ✅ Mobile-first Flutter shell, sign-in and role-based navigation
-- 🚧 Student dashboard caches classes, assignments, announcements and summary counts for connectivity-only offline display (latest CI verification pending; device verification pending)
+- ✅ Student dashboard caches classes, assignments, announcements and summary counts for connectivity-only offline display (CI passed; device verification pending)
 - ✅ A1–B1 course outline, searchable offline vocabulary and grammar library
-- 🚧 Offline practice, assignment-progress and written-response queues for weekly sync (written-response queue under CI verification; device verification pending)
+- ✅ Offline practice, assignment-progress and written-response queues for weekly sync (CI passed; device verification pending)
 - ✅ Last-approved profile cache for restoring the learning UI after recognized network failures (CI passed; device verification pending)
-- 🚧 Student assignment list with connectivity-only cache, local written-response queue and reading/writing submissions (CI verification pending)
+- ✅ Student assignment list with connectivity-only cache, local written-response queue and reading/writing submissions (CI passed; device verification pending)
 - ✅ Teacher dashboard, assigned classes, class announcements and server-validated class assignment creation (CI passed; device verification pending)
 - ✅ Admin dashboard, student approval, class/teacher setup, assignment creation and submission review
 - ✅ Teacher/admin in-app announcement publishing with student inbox delivery (Flutter CI passed; trigger migration applied; device verification pending)
 - ✅ Role-aware profile page with local progress, password-reset email and sign-out controls (CI passed; device verification pending)
 - ✅ Weekly sync gate for offline Learn/Practice access (CI passed; device verification pending)
-- ✅ Notification inbox and weekly progress sync, including queued assignment progress (CI passed; Android device verification pending)
+- 🚧 Notification inbox and weekly progress sync, including queued assignment progress and connectivity-only notification cache (notification cache under CI verification; Android device verification pending)
 - ⏳ Final online/offline end-to-end testing and legacy LMS removal
 
 These checkmarks indicate that the Flutter code exists; they do not claim device-level verification.
