@@ -9,7 +9,6 @@ enum _StudentMode { signIn, create }
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.authService, required this.onSignedIn});
-
   final AuthService authService;
   final ValueChanged<AppUser> onSignedIn;
 
@@ -28,6 +27,8 @@ class _LoginPageState extends State<LoginPage> {
   final _nameController = TextEditingController();
   final _codeController = TextEditingController();
 
+  bool get _creatingStudent => _tab == _AuthTab.student && _studentMode == _StudentMode.create;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -36,16 +37,12 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  bool get _creatingStudent =>
-      _tab == _AuthTab.student && _studentMode == _StudentMode.create;
-
   Future<void> _sendCode() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
       await widget.authService.sendCode(
         email: _emailController.text,
-        // Only the student account-creation flow is allowed to create an Auth user.
         allowNewStudent: _creatingStudent,
       );
       if (!mounted) return;
@@ -74,44 +71,39 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _loading = true);
     try {
       if (_creatingStudent) {
-        await widget.authService.verifyCode(
+        await widget.authService.verifyOtpOnly(
           email: _emailController.text,
           code: code,
         );
-        // verifyCode loads the profile and therefore rejects an unapproved new
-        // account. Complete the registration directly when that happens instead.
+        await widget.authService.completeStudentRegistration(
+          fullName: _nameController.text,
+        );
+        await widget.authService.signOut();
+        if (mounted) {
+          setState(() {
+            _codeSent = false;
+            _codeController.clear();
+            _studentMode = _StudentMode.signIn;
+          });
+          _showMessage('Account created. An administrator must approve it before you can sign in.');
+        }
       } else {
         final user = await widget.authService.verifyCode(
           email: _emailController.text,
           code: code,
         );
         if (mounted) widget.onSignedIn(user);
-        return;
       }
     } on AuthException catch (error) {
-      if (_creatingStudent && error.message.toLowerCase().contains('waiting for administrator approval')) {
-        try {
-          await widget.authService.completeStudentRegistration(
-            fullName: _nameController.text,
-          );
-          await widget.authService.signOut();
-          if (mounted) {
-            setState(() {
-              _codeSent = false;
-              _codeController.clear();
-              _studentMode = _StudentMode.signIn;
-            });
-            _showMessage('Account created. An administrator must approve it before you can sign in.');
-          }
-          return;
-        } catch (registrationError) {
-          if (mounted) _showMessage(registrationError.toString(), error: true);
-        }
-      } else if (mounted) {
-        _showMessage(error.message, error: true);
-      }
-    } catch (_) {
-      if (mounted) _showMessage('Could not verify the code. Please try again.', error: true);
+      if (mounted) _showMessage(error.message, error: true);
+      try {
+        await widget.authService.signOut();
+      } catch (_) {}
+    } catch (error) {
+      if (mounted) _showMessage('Could not complete this request. Please try again.', error: true);
+      try {
+        await widget.authService.signOut();
+      } catch (_) {}
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -200,9 +192,9 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(height: 8),
                             Text(
                               _tab == _AuthTab.admin
-                                  ? 'Teachers and administrators sign in with their registered email. An approved teacher cannot create an account here.'
+                                  ? 'Teachers and administrators sign in with their registered email. Only an approved account can enter this area.'
                                   : _creatingStudent
-                                      ? 'Students can create their own account. The account starts as pending until an administrator approves it.'
+                                      ? 'Students can create their own account. It starts as pending until an administrator approves it.'
                                       : 'Enter your registered email. We will send a one-time 6-digit login code.',
                               style: theme.textTheme.bodyMedium,
                             ),
@@ -216,12 +208,9 @@ class _LoginPageState extends State<LoginPage> {
                                   labelText: 'Full name',
                                   prefixIcon: Icon(Icons.person_outline),
                                 ),
-                                validator: (value) {
-                                  if (_creatingStudent && (value?.trim().isEmpty ?? true)) {
-                                    return 'Enter your full name';
-                                  }
-                                  return null;
-                                },
+                                validator: (value) => _creatingStudent && (value?.trim().isEmpty ?? true)
+                                    ? 'Enter your full name'
+                                    : null,
                               ),
                               const SizedBox(height: 14),
                             ],
@@ -232,13 +221,12 @@ class _LoginPageState extends State<LoginPage> {
                               enabled: !_codeSent,
                               autofillHints: const [AutofillHints.email],
                               decoration: const InputDecoration(
-                                labelText: 'Registered email',
+                                labelText: 'Email',
                                 prefixIcon: Icon(Icons.email_outlined),
                               ),
                               validator: (value) {
                                 final email = value?.trim() ?? '';
-                                if (email.isEmpty || !email.contains('@')) return 'Enter a valid email address';
-                                return null;
+                                return email.isEmpty || !email.contains('@') ? 'Enter a valid email address' : null;
                               },
                             ),
                             if (_codeSent) ...[
@@ -269,7 +257,12 @@ class _LoginPageState extends State<LoginPage> {
                             if (_codeSent) ...[
                               const SizedBox(height: 8),
                               TextButton(
-                                onPressed: _loading ? null : () => setState(() { _codeSent = false; _codeController.clear(); }),
+                                onPressed: _loading
+                                    ? null
+                                    : () => setState(() {
+                                        _codeSent = false;
+                                        _codeController.clear();
+                                      }),
                                 child: const Text('Use a different email'),
                               ),
                             ],
@@ -281,7 +274,7 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 16),
                   Text(
                     _tab == _AuthTab.admin
-                        ? 'Only an administrator can approve a student as a teacher.'
+                        ? 'Teachers are promoted by an administrator after their student account is created.'
                         : 'No passwords are stored or required. Login uses a one-time email code.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall,
