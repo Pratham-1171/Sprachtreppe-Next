@@ -37,6 +37,22 @@ test('web build bundles shared staff logic and responsive app styling', async ()
   assert.equal(w.SP_AUTH.enabled, false, 'local mode keeps account sync disabled');
 });
 
+test('built web app ships the forest/lime palette and bypasses stale HTML caches', () => {
+  const file = build({ALLOW_LOCAL_MODE: '1'});
+  const fs = require('node:fs');
+  const html = fs.readFileSync(file, 'utf8');
+  for (const marker of [
+    '.logo span{color:var(--accent2)}',
+    'nav button.active{background:color-mix(in oklch,var(--accent2) 24%,var(--card))',
+    '.today-dash{background:linear-gradient(125deg',
+    '.tag.A2{background:color-mix(in oklch,var(--accent2) 34%,var(--card))',
+    '.mastery-MASTERED{background:color-mix(in oklch,var(--accent2) 48%,var(--card))'
+  ]) assert.ok(html.includes(marker), 'app theme is missing ' + marker);
+  const sw = fs.readFileSync(file.replace('index.html', 'sw.js'), 'utf8');
+  assert.ok(sw.includes("new Request(file, { cache: 'reload' })"), 'service worker install must fetch latest HTML');
+  assert.ok(sw.includes("new Request(e.request, { cache: 'no-store' })"), 'HTML navigation must bypass stale browser cache');
+});
+
 test('reading screen is interactive and scores answers', async () => {
   const {window: w, errors} = load(build({ALLOW_LOCAL_MODE: '1'})); await wait(600);
   await go(w, 'read'); const opts = [...w.document.querySelectorAll('.rd-opts .opt')]; assert.equal(opts.length, 20);

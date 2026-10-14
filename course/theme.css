@@ -51,10 +51,37 @@ th,td {padding:10px;border-bottom:1px solid var(--line);}
 .grammar-card .grammar-de{font-weight:650;display:flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere}
 .grammar-card .grammar-en{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .grammar-card .grammar-mistake-label{color:var(--warn)}
-.grammar-card .grammar-mistake{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:9px 11px;background:rgba(225,29,72,.06);border-radius:8px;font-size:12.5px;align-items:start;overflow-wrap:anywhere}
+.grammar-card .grammar-mistake{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:9px 11px;background:color-mix(in oklch,var(--warn) 8%,var(--card));border-radius:8px;font-size:12.5px;align-items:start;overflow-wrap:anywhere}
 .grammar-card .grammar-mistake span:first-child{color:var(--warn)}
 .grammar-card .grammar-mistake span:last-child{color:var(--ok);font-weight:650}
 .grammar-card .grammar-exercise{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0 0}
 .grammar-card .grammar-question{font-weight:650;font-size:14px;margin-bottom:10px}
 .grammar-card .grammar-feedback{margin-top:10px;font-size:13px;padding:8px 10px;border-radius:7px}
 @media(max-width:520px){.grammar-card .grammar-example,.grammar-card .grammar-mistake{grid-template-columns:1fr;gap:4px}.grammar-card .grammar-rule{font-size:12px;padding:10px}}
+
+
+/* Stronger visual parity with the native Sprachtreppe forest-green and lime theme. */
+.logo span{color:var(--accent2)}
+header{box-shadow:none;border-bottom:2px solid color-mix(in oklch,var(--accent2) 42%,var(--line))}
+nav button.active{background:color-mix(in oklch,var(--accent2) 24%,var(--card));color:var(--text);border-bottom-color:var(--accent2);border-radius:8px 8px 0 0}
+.today-dash{background:linear-gradient(125deg,color-mix(in oklch,var(--accent) 5%,var(--card)),color-mix(in oklch,var(--accent2) 28%,var(--card)));border:1px solid var(--line);border-left:4px solid var(--accent2);color:var(--text)}
+.today-dash h3{color:var(--text)}
+.today-dash .td-sub{color:var(--muted)}
+.today-dash .streak-badge{background:color-mix(in oklch,var(--accent2) 42%,var(--card));color:var(--text)}
+.today-dash .td-stats span{background:color-mix(in oklch,var(--accent2) 20%,var(--card))}
+.tag.A1{background:color-mix(in oklch,var(--accent) 12%,var(--card));color:var(--accent)}
+.tag.A2{background:color-mix(in oklch,var(--accent2) 34%,var(--card));color:var(--text)}
+.tag.B1{background:color-mix(in oklch,var(--ok) 14%,var(--card));color:var(--ok)}
+html[data-theme="dark"] .tag.A1{background:color-mix(in oklch,var(--accent) 24%,var(--card));color:var(--text)}
+html[data-theme="dark"] .tag.A2{background:color-mix(in oklch,var(--accent2) 24%,var(--card));color:var(--text)}
+html[data-theme="dark"] .tag.B1{background:color-mix(in oklch,var(--ok) 24%,var(--card));color:var(--text)}
+.mastery-NEW{background:color-mix(in oklch,var(--muted) 14%,var(--card));color:var(--muted)}
+.mastery-LEARNING{background:color-mix(in oklch,var(--accent2) 30%,var(--card));color:var(--text)}
+.mastery-FAMILIAR{background:color-mix(in oklch,var(--accent) 12%,var(--card));color:var(--accent)}
+.mastery-STRONG{background:color-mix(in oklch,var(--ok) 14%,var(--card));color:var(--ok)}
+.mastery-MASTERED{background:color-mix(in oklch,var(--accent2) 48%,var(--card));color:var(--text)}
+html[data-theme="dark"] .mastery-NEW{background:color-mix(in oklch,var(--muted) 16%,var(--card));color:var(--text)}
+html[data-theme="dark"] .mastery-LEARNING{background:color-mix(in oklch,var(--accent2) 24%,var(--card));color:var(--text)}
+html[data-theme="dark"] .mastery-FAMILIAR{background:color-mix(in oklch,var(--accent) 28%,var(--card));color:var(--text)}
+html[data-theme="dark"] .mastery-STRONG{background:color-mix(in oklch,var(--ok) 24%,var(--card));color:var(--text)}
+html[data-theme="dark"] .mastery-MASTERED{background:color-mix(in oklch,var(--accent2) 28%,var(--card));color:var(--text)}
