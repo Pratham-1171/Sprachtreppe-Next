@@ -401,7 +401,7 @@ String _dateLabel(DateTime value) {
 
 String _titleCase(String value) => value
     .replaceAll('_', ' ')
-    .split(RegExp(r'\\s+'))
+    .split(RegExp(r'\s+'))
     .map((part) => part.isEmpty
         ? part
         : '${part.substring(0, 1).toUpperCase()}${part.substring(1).toLowerCase()}')

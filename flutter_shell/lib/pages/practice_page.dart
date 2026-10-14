@@ -91,7 +91,7 @@ class _PracticePageState extends State<PracticePage> {
       notices.add('The round finished, but local progress could not be saved.');
     }
     if (_assignmentNotice != null) notices.add(_assignmentNotice!);
-    return notices.isEmpty ? null : notices.join('\\n');
+    return notices.isEmpty ? null : notices.join('\n');
   }
 
   @override
