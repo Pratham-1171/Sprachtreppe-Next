@@ -1,9 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'cached_user_store.dart';
-
 import '../models/app_role.dart';
 import '../models/app_user.dart';
+import 'cached_user_store.dart';
 
 class AuthService {
   AuthService(this._client, {CachedUserStore? cachedUsers})
