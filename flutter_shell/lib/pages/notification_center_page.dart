@@ -168,8 +168,8 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
           future: _notificationFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-              return const ListView(
-                physics: AlwaysScrollableScrollPhysics(),
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   SizedBox(height: 260),
                   Center(child: CircularProgressIndicator()),
