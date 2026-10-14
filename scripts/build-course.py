@@ -14,7 +14,8 @@ if src.count('<!-- COURSE_BASE_CSS -->') != 1 or src.count('<!-- COURSE_APP_SCRI
 
 def patch_app(old, new, count=None):
     global app_src
-    if old not in app_src: raise SystemExit('Course source changed, cannot patch app module: ' + old[:90])
+    if old not in app_src:
+        raise SystemExit('Course source changed, cannot patch app module: ' + old[:90])
     app_src = app_src.replace(old, new) if count is None else app_src.replace(old, new, count)
 
 # Behaviour and v8 engine fixes.
@@ -46,13 +47,21 @@ key = os.environ.get('SUPABASE_ANON_KEY', '').strip()
 local = os.environ.get('ALLOW_LOCAL_MODE', '') in ('1','true','yes')
 cfg_file = root / 'course/config.local.json'
 if (not url or not key) and cfg_file.exists():
-    c = json.loads(cfg_file.read_text()); url = url or c.get('url',''); key = key or c.get('key','')
+    c = json.loads(cfg_file.read_text())
+    url = url or c.get('url','')
+    key = key or c.get('key','')
 if url or key:
-    if not re.fullmatch(r'https://[a-z0-9-]+\\.supabase\\.(co|in)', url): raise SystemExit('SUPABASE_URL must look like https://<project>.supabase.co')
-    if len(key) < 30 or 'service_role' in key.lower(): raise SystemExit('SUPABASE_ANON_KEY missing or invalid. NEVER put the service_role key in the app.')
-    config = {'url': url, 'key': key, 'syncDays': 7, 'warnDays': 5}; mode = 'ACCOUNTS + WEEKLY SYNC enabled'
+    # Keep this validation strict enough to reject malformed/non-Supabase URLs,
+    # while accepting the normal project hostname used by tests and deployments.
+    if not re.fullmatch(r'https://[a-z0-9-]+\.supabase\.(co|in)', url):
+        raise SystemExit('SUPABASE_URL must look like https://<project>.supabase.co')
+    if len(key) < 30 or 'service_role' in key.lower():
+        raise SystemExit('SUPABASE_ANON_KEY missing or invalid. NEVER put the service_role key in the app.')
+    config = {'url': url, 'key': key, 'syncDays': 7, 'warnDays': 5}
+    mode = 'ACCOUNTS + WEEKLY SYNC enabled'
 elif local:
-    config = {}; mode = 'LOCAL MODE (no login, no sync)'
+    config = {}
+    mode = 'LOCAL MODE (no login, no sync)'
 else:
     raise SystemExit('No backend configured. Set SUPABASE_URL and SUPABASE_ANON_KEY, or set ALLOW_LOCAL_MODE=1 for a practice-only build.')
 
@@ -64,12 +73,16 @@ src = src.replace('<!-- COURSE_BASE_CSS -->', '<style>' + base_css + '</style>',
 src = src.replace('</head>', '<style>' + theme + '</style><style id="spWebFirst">' + web_css + '</style><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#1e6feb"></head>', 1)
 patch_app("$('#themeBtn').onclick =", cfg_js + '\n'.join(parts) + "\n$('#themeBtn').onclick =", 1)
 src = src.replace('<!-- COURSE_APP_SCRIPT -->', '<script>' + app_src + '</script>', 1)
-i = src.rindex('</body>'); src = src[:i] + '<script>' + shim + '</script>' + src[i:]
-out = Path(os.environ.get('SP_OUT_DIR') or (root / 'www')); out.mkdir(parents=True, exist_ok=True)
+i = src.rindex('</body>')
+src = src[:i] + '<script>' + shim + '</script>' + src[i:]
+out = Path(os.environ.get('SP_OUT_DIR') or (root / 'www'))
+out.mkdir(parents=True, exist_ok=True)
 (out / 'index.html').write_text(src, encoding='utf-8')
 build_id = hashlib.sha1(src.encode('utf-8')).hexdigest()[:10]
-sw = (root / 'web-assets/sw.js').read_text().replace('__BUILD__', build_id); (out / 'sw.js').write_text(sw, encoding='utf-8')
+sw = (root / 'web-assets/sw.js').read_text().replace('__BUILD__', build_id)
+(out / 'sw.js').write_text(sw, encoding='utf-8')
 (out / 'manifest.webmanifest').write_text((root / 'web-assets/manifest.webmanifest').read_text())
 (out / 'icons').mkdir(exist_ok=True)
-for p in (root / 'web-assets/icons').glob('*.png'): (out / 'icons' / p.name).write_bytes(p.read_bytes())
+for p in (root / 'web-assets/icons').glob('*.png'):
+    (out / 'icons' / p.name).write_bytes(p.read_bytes())
 print('Built www/index.html (%d KB) — %s — build %s' % (len(src)//1024, mode, build_id))
