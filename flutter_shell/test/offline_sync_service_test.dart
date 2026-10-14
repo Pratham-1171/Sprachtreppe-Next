@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sprachtreppe_flutter/services/offline_sync_service.dart';
+import 'package:sprachtreppe_flutter/services/progress_service.dart';
 
 void main() {
   group('OfflineSyncService.sessionSnapshot', () {
