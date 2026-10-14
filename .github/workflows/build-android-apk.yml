@@ -1,0 +1,60 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [web-first]
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.35.7'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Flutter project
+        id: detect
+        shell: bash
+        run: |
+          if [[ -f pubspec.yaml ]]; then
+            echo "is_flutter=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_flutter=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Flutter
+        if: steps.detect.outputs.is_flutter == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        if: steps.detect.outputs.is_flutter == 'true'
+        run: flutter pub get
+
+      - name: Build release APK
+        if: steps.detect.outputs.is_flutter == 'true'
+        run: flutter build apk --release
+
+      - name: Upload APK
+        if: steps.detect.outputs.is_flutter == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sprachtreppe-next-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Fail clearly when Flutter project is absent
+        if: steps.detect.outputs.is_flutter != 'true'
+        run: |
+          echo 'No pubspec.yaml was found in Sprachtreppe-Next.'
+          echo 'This repository is currently web-first and does not yet contain a Flutter Android project.'
+          exit 1
