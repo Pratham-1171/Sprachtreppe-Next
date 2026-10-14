@@ -301,7 +301,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       setState(() {
         _submittingResponse = false;
         if (queued != null) {
-          _submissionClientId = queued!.clientId;
+          _submissionClientId = queued.clientId;
           _pendingOfflineSubmission = true;
           _submissionError = null;
           _submissionMessage =
