@@ -1,24 +1,75 @@
-/* Sprachtreppe Next — browser-first desktop layer */
-:root{--max-w:1320px;--pad-x:clamp(18px,3vw,42px)}
+/* Sprachtreppe Next — browser-first app shell */
+:root{--max-w:1320px;--pad-x:clamp(18px,3vw,42px);--sidebar-w:238px;--topbar-h:68px}
 body{background:var(--bg)}
-header{height:64px;padding-left:var(--pad-x);padding-right:var(--pad-x)}
-.logo{font-size:17px}
-nav .inner{justify-content:center;max-width:1320px;margin:0 auto}
-main{padding-top:28px;padding-bottom:36px}
+header{height:var(--topbar-h);padding-left:var(--pad-x);padding-right:var(--pad-x);border-bottom:1px solid var(--line);box-shadow:0 1px 8px rgba(0,0,0,.05)}
+.logo{font-size:18px;font-weight:850;display:flex;align-items:center;gap:7px}
+.logo:before{content:'Sprachtreppe';font-family:inherit;color:var(--text)}
+.logo{font-size:0}
+.logo span{font-size:12px;color:var(--muted);font-weight:700}
+.logo span:before{content:'German A1–B1 · '}
+header .spacer{display:block}
+header:after{content:'Learning workspace';font-size:12px;color:var(--muted);font-weight:650;order:2;margin-left:8px;margin-right:12px}
+header .iconbtn{order:3;background:var(--bg);border-radius:11px}
+header .langbtn{order:3}
+
+/* Desktop: turn the existing course navigation into the app sidebar. */
+nav{position:fixed;left:0;top:var(--topbar-h);bottom:0;width:var(--sidebar-w);height:auto;z-index:45;border-right:1px solid var(--line);border-bottom:0;overflow-y:auto;overflow-x:hidden;background:var(--card);padding:18px 12px}
+nav .inner{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;gap:5px;min-width:0;width:100%;padding:0}
+nav button{width:100%;justify-content:flex-start;gap:10px;padding:12px 14px;border:0;border-radius:11px;border-bottom:0;color:var(--muted);font-size:13.5px;font-weight:700;min-height:44px;text-align:left}
+nav button:hover{background:var(--bg);color:var(--text)}
+nav button.active{background:color-mix(in srgb,var(--accent) 10%,var(--card));color:var(--accent);border:0}
+main{max-width:none;width:auto;margin-left:var(--sidebar-w);padding:30px clamp(24px,4vw,54px) 42px;min-height:calc(100dvh - var(--topbar-h));}
 main>.card:first-child{border-radius:18px}
-.card{transition:box-shadow .16s,border-color .16s}
-.card:hover{border-color:color-mix(in srgb,var(--accent) 28%,var(--line))}
-.grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
-.tile{min-height:118px;padding:18px}
+.card{transition:transform .16s,box-shadow .16s,border-color .16s}
+.card:hover{border-color:color-mix(in srgb,var(--accent) 28%,var(--line));box-shadow:0 8px 24px rgba(0,0,0,.06)}
+.grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.tile{min-height:126px;padding:19px;border-radius:16px}
+.tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,.07)}
 .tile .t-name{font-size:15px}
 .tile .t-desc{font-size:12px}
-.stats{grid-template-columns:repeat(4,minmax(120px,1fr))}
-.today-dash{padding:24px;border-radius:18px}
-footer{margin-top:36px}
+.stats{grid-template-columns:repeat(4,minmax(140px,1fr));gap:14px}
+.stat{padding:17px;border-radius:15px}
+.today-dash{padding:26px;border-radius:18px}
+footer{margin-top:36px;margin-left:var(--sidebar-w);width:auto}
 .passage,.qa{max-width:900px}
 .flash-wrap{max-width:620px}
 .table-wrap,.table-scroll{max-width:100%;overflow-x:auto}
 table{max-width:100%}
 #spAuth .sp-card,#spLock .sp-card{width:min(460px,100%);padding:28px}
-@media (min-width:1100px){header{gap:12px}nav button{padding-left:14px;padding-right:14px}main{min-height:calc(100dvh - 130px)}}
-@media (max-width:760px){:root{--pad-x:14px}header{height:58px}.logo{font-size:14px}.logo span{display:none}main{padding-top:16px}.stats{grid-template-columns:repeat(2,minmax(120px,1fr))}.grid{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}}
+
+/* Give the home/dashboard view the same visual hierarchy as the app. */
+#view>h2{font-size:clamp(25px,2vw,34px);margin-bottom:6px}
+#view>.sub{font-size:13px;margin-bottom:22px}
+#view .today-dash{margin-bottom:18px}
+#view .today-dash h3{font-size:clamp(22px,2vw,30px)}
+
+@media (min-width:1100px){header{gap:12px}main{min-height:calc(100dvh - var(--topbar-h));}.stats{grid-template-columns:repeat(4,minmax(140px,1fr))}}
+
+/* Tablet/mobile: return to a compact app navigation instead of forcing a sidebar. */
+@media (max-width:900px){
+  :root{--pad-x:18px}
+  header{height:62px}
+  nav{position:sticky;top:62px;left:auto;bottom:auto;width:100%;height:auto;padding:0;border-right:0;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden}
+  nav .inner{display:inline-flex;flex-direction:row;align-items:stretch;width:auto;min-width:100%;padding:0 10px;gap:2px}
+  nav button{width:auto;justify-content:center;padding:11px 13px;border-radius:0;min-height:46px}
+  nav button.active{background:transparent;border-bottom:3px solid var(--accent);border-radius:0}
+  main{margin-left:0;width:100%;padding:22px var(--pad-x) 32px}
+  footer{margin-left:0;width:100%}
+}
+@media (max-width:600px){
+  :root{--pad-x:14px}
+  header{height:58px;padding-left:12px;padding-right:12px}
+  .logo:before{content:'🇩🇪 Sprachtreppe'}
+  .logo span{display:none}
+  header:after{display:none}
+  header .iconbtn{width:38px;height:38px}
+  nav{top:58px}
+  nav button{font-size:12px;padding:10px 10px}
+  main{padding-top:16px}
+  .stats{grid-template-columns:repeat(2,minmax(120px,1fr));gap:9px}
+  .grid{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .tile{min-height:108px;padding:14px}
+  .card{border-radius:13px}
+  .today-dash{padding:18px;border-radius:15px}
+  footer{margin-top:20px}
+}
