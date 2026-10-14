@@ -18,7 +18,7 @@ Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed o
 - ✅ Admin dashboard, student approval, class/teacher setup, assignment creation and submission review
 - ✅ Teacher/admin in-app announcement publishing with student inbox delivery (Flutter CI passed; trigger migration applied; device verification pending)
 - ✅ Role-aware profile page with local progress, password-reset email and sign-out controls (CI passed; device verification pending)
-- ✅ Weekly sync gate for offline Learn/Practice access (CI passed; device verification pending)
+- 🚧 Weekly sync gate for offline Learn/Practice/Tasks access (Learn/Practice CI passed; Tasks-gate CI and device verification pending)
 - 🚧 Notification inbox and weekly progress sync, including queued assignment progress and connectivity-only notification cache (notification cache under CI verification; Android device verification pending)
 - ⏳ Final online/offline end-to-end testing and legacy LMS removal
 
