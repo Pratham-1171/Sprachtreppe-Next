@@ -10,6 +10,7 @@ import 'pages/login_page.dart';
 import 'pages/practice_page.dart';
 import 'pages/assignments_page.dart';
 import 'pages/student_dashboard_page.dart';
+import 'pages/teacher_pages.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
@@ -167,6 +168,15 @@ class _RoleShellState extends State<RoleShell> {
     }
     if (widget.user.role == AppRole.student && item.label == 'Tasks') {
       return AssignmentsPage(userId: widget.user.id);
+    }
+    if (widget.user.role == AppRole.teacher && item.label == 'Dashboard') {
+      return const TeacherDashboardPage();
+    }
+    if (widget.user.role == AppRole.teacher && item.label == 'Classes') {
+      return const TeacherClassesPage();
+    }
+    if (widget.user.role == AppRole.teacher && item.label == 'Work') {
+      return const TeacherWorkPage();
     }
     return _Page(title: item.label, role: widget.user.role);
   }
