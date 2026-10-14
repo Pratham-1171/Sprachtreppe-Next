@@ -145,7 +145,9 @@ class ProgressService {
   String get _storageKey => 'sprachtreppe_progress_v1_$userId';
 
   Future<SharedPreferences> _resolvePreferences() async {
-    return _preferences ?? SharedPreferences.getInstance();
+    final cached = _preferences;
+    if (cached != null) return cached;
+    return SharedPreferences.getInstance();
   }
 
   Future<List<StudySession>> loadSessions() async {
