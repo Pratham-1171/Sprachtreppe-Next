@@ -28,7 +28,7 @@ test('web build bundles shared staff logic and responsive app styling', async ()
   ]) assert.ok(html.includes(marker), 'built web app is missing ' + marker);
   assert.ok(!html.includes('--bg:#f4f7ff'), 'LMS must not override the app background theme');
   assert.ok(!html.includes('--accent:#6d28d9'), 'LMS must not override the app accent theme');
-  const manifest = JSON.parse(fs.readFileSync(file.replace(/index\\.html$/, 'manifest.webmanifest'), 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(file.replace('index.html', 'manifest.webmanifest'), 'utf8'));
   assert.equal(manifest.theme_color, '#315f52');
   assert.equal(manifest.background_color, '#ffffff');
   const {window: w, errors} = load(file);
