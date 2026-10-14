@@ -42,7 +42,7 @@ async function renderClassroom(el){theme();nav();if(!staff()){try{const d=await 
 window.viewClassroom=renderClassroom;
 let lastRole='';
 let lastNoticeRefresh=0;
-function enforceStaffRoute(){if(!staff())return;const current=(location.hash||'#/home').slice(2).split('?')[0]||'home';if(!staffKeys().includes(current))location.hash='#/students'}
+function enforceStaffRoute(){if(!staff())return;const current=(location.hash||'#/home').slice(2).split('?')[0]||'home';if(current==='account'||current==='settings'||(admin()&&current==='admin'))return;if(!staffKeys().includes(current))location.hash='#/students'}
 async function chrome(){theme();const role=admin()?'admin':teacher()?'teacher':'student';if(role!==lastRole){lastRole=role;nav();enforceStaffRoute()}enforceStaffRoute();if(st().auth?.access_token&&Date.now()-lastNoticeRefresh>30000){lastNoticeRefresh=Date.now();try{const ns=await notificationCount();const unread=ns.filter(n=>!n.read_at).length;const b=document.querySelector('nav button[data-route="notifications"]');if(b)b.textContent=`🔔 Notifications${unread?' ('+unread+')':''}`}catch{}}}
 window.addEventListener('hashchange',enforceStaffRoute);
 chrome();setInterval(chrome,400);setInterval(()=>{if(st().auth?.access_token&&typeof location!=='undefined'&&location.hash.includes('notifications'))renderNotifications(document.getElementById('view'))},30000);
