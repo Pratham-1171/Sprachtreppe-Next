@@ -56,6 +56,41 @@ void main() {
     expect(workspace.submissions.single.assignmentTitle, 'Write an email');
   });
 
+  test('identifies weekly progress sync and formats its summary', () {
+    final workspace = AdminWorkspace.fromRows(
+      students: const [],
+      teachers: const [],
+      classes: const [],
+      submissions: [
+        {
+          'id': 51,
+          'student_id': 'student-id',
+          'created_at': '2026-10-14T08:00:00Z',
+          'summary': {
+            'source': 'flutter_offline_progress_sync',
+            'session_count': 4,
+            'total_questions': 32,
+            'accuracy_percent': 75,
+          },
+          'payload': {
+            'practice_sessions': [
+              {'mode': 'Quiz', 'level': 'A1', 'correct': 3, 'total': 4},
+            ],
+          },
+          'review_status': 'pending',
+        },
+      ],
+      profilesById: {
+        'student-id': {'id': 'student-id', 'full_name': 'Mira Student', 'email': 'mira@example.test'},
+      },
+    );
+
+    final submission = workspace.submissions.single;
+    expect(submission.isProgressSync, isTrue);
+    expect(submission.assignmentTitle, 'Weekly progress sync');
+    expect(submission.progressSummary, '4 practice sessions · 32 questions · 75% accuracy');
+  });
+
   test('handles missing optional fields safely', () {
     final workspace = AdminWorkspace.fromRows(
       students: [{'id': 'one', 'full_name': 'Student'}],

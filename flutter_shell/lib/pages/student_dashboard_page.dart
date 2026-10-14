@@ -3,7 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user.dart';
 import '../services/dashboard_service.dart';
+import '../services/offline_sync_service.dart';
 import '../services/progress_service.dart';
+import 'notification_center_page.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key, required this.user});
@@ -16,16 +18,34 @@ class StudentDashboardPage extends StatefulWidget {
 class _StudentDashboardPageState extends State<StudentDashboardPage> {
   late Future<DashboardData> _future;
   late Future<ProgressStats> _progressFuture;
+  late Future<DateTime?> _lastSyncFuture;
+  late final OfflineSyncService _syncService;
 
   @override
   void initState() {
     super.initState();
+    _syncService = OfflineSyncService(Supabase.instance.client, widget.user.id);
     _load();
   }
 
   void _load() {
     _future = DashboardService(Supabase.instance.client).load(widget.user.id);
     _progressFuture = ProgressService(widget.user.id).loadStats();
+    _lastSyncFuture = _syncService.loadLastSyncAt();
+  }
+
+  Future<void> _openSyncCenter() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationCenterPage(
+          userId: widget.user.id,
+          includeProgressSync: true,
+        ),
+      ),
+    );
+    if (mounted) {
+      setState(() => _lastSyncFuture = _syncService.loadLastSyncAt());
+    }
   }
 
   Future<void> _refresh() async {
@@ -68,6 +88,22 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                 },
               ),
               const SizedBox(height: 22),
+              FutureBuilder<DateTime?>(
+                future: _lastSyncFuture,
+                builder: (context, syncSnapshot) {
+                  if (syncSnapshot.connectionState == ConnectionState.waiting &&
+                      !syncSnapshot.hasData) {
+                    return const SizedBox.shrink();
+                  }
+                  if (!OfflineSyncService.isSyncDue(syncSnapshot.data)) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 22),
+                    child: _SyncReminderCard(onSync: _openSyncCenter),
+                  );
+                },
+              ),
               _SectionHeader(title: 'Your classes', count: data.classes.length),
               const SizedBox(height: 10),
               if (data.classes.isEmpty)
@@ -349,6 +385,56 @@ class _ErrorState extends StatelessWidget {
               const SizedBox(height: 8),
               Text('$error', maxLines: 3, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class _SyncReminderCard extends StatelessWidget {
+  const _SyncReminderCard({required this.onSync});
+
+  final VoidCallback onSync;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.cloud_sync_outlined, color: theme.colorScheme.primary, size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Weekly sync is due', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Connect to the internet to send your saved study progress and receive feedback from your school.',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onSync,
+                icon: const Icon(Icons.sync),
+                label: const Text('Sync progress now'),
+              ),
+            ),
           ],
         ),
       ),

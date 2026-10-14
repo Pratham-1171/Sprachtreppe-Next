@@ -1,6 +1,6 @@
 # Sprachtreppe Flutter Shell
 
-This directory is the gradual Flutter migration for Sprachtreppe.
+This directory contains the gradual Flutter migration for Sprachtreppe.
 
 ## Migration rule
 
@@ -8,42 +8,38 @@ Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed o
 
 ## Current migration status
 
-- ✅ Mobile-first application shell
-- ✅ Authentication and role routing
-- ✅ Student dashboard
-- 🚧 Course catalog / lessons — Flutter replacement started
-- ⏳ Vocabulary
-- ⏳ Grammar
-- ⏳ Practice and exercises
-- ⏳ Progress and offline storage
-- ⏳ Assignments and announcements
-- ⏳ Teacher tools
-- ⏳ Admin tools
-- ⏳ Sync and notifications
-- ⏳ Final legacy LMS removal
+- ✅ Mobile-first Flutter shell, sign-in and role-based navigation
+- ✅ Supabase-backed student dashboard with classes, assignments, announcements and local study statistics
+- ✅ A1–B1 course outline, searchable offline vocabulary and grammar library
+- ✅ Offline practice quizzes with locally stored session history, accuracy and streaks
+- ✅ Student assignment list and reading/writing submissions
+- ✅ Teacher dashboard, assigned classes and class work
+- ✅ Admin dashboard, student approval, class/teacher setup, assignment creation and submission review
+- 🚧 Notification inbox and weekly progress sync; CI verification is in progress and Android device verification is still outstanding
+- ⏳ Final online/offline end-to-end testing and legacy LMS removal
 
-## Cleanup rule
+These checkmarks indicate that the Flutter code exists; they do not claim device-level verification.
 
-Safe infrastructure cleanup can happen before feature migration when it is proven unused by the Flutter branch. The obsolete Capacitor APK workflow has been removed from this branch. The legacy course, Capacitor Android project, Node build system, and course JavaScript remain until their corresponding Flutter replacements are verified.
+## Gradual migration order
 
-## Planned migration order
-
-1. Mobile-first application shell
-2. Authentication and role routing
-3. Student dashboard
-4. Course, vocabulary and grammar
-5. Practice and exercises
-6. Progress and offline storage
-7. Assignments and announcements
-8. Teacher tools
-9. Admin tools
-10. Sync and notifications
-11. Remove obsolete LMS modules only after verified Flutter replacements exist
+1. App shell, authentication and role routing
+2. Student dashboard
+3. Course catalogue, vocabulary and grammar
+4. Practice and local progress storage
+5. Assignments and announcements
+6. Teacher tools
+7. Admin tools
+8. Notification inbox and weekly progress sync
+9. End-to-end online/offline verification on Android
+10. Remove legacy modules only after verified Flutter replacements exist
 
 ## Mobile requirement
 
-The Flutter UI must be designed for narrow Android screens first and must not introduce horizontal scrolling for normal app content.
+Design for narrow Android screens first. Normal content should never require horizontal scrolling.
 
-## Safety
+## Safety and security
 
-Never remove a legacy feature merely because a Flutter screen exists. The replacement must contain the required behavior, pass CI, be tested on-device, and be verified against Supabase first.
+- Protected server-side role checks and Supabase RLS remain the security boundary; hiding a button is not authorization.
+- Never put a Supabase service-role or secret key in a mobile app.
+- Do not remove the legacy course, Capacitor project, Node build setup or course JavaScript until the corresponding Flutter replacement has passed CI, been tested on an Android device and had its Supabase behavior verified.
+- Keep main stable until the flutter-shell branch is ready for a reviewed merge.

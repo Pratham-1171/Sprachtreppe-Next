@@ -848,6 +848,7 @@ class _SubmissionReviewCardState extends State<_SubmissionReviewCard> {
   Widget build(BuildContext context) {
     final submission = widget.submission;
     final response = submission.writtenResponse;
+    final progressSummary = submission.progressSummary;
     final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -861,7 +862,9 @@ class _SubmissionReviewCardState extends State<_SubmissionReviewCard> {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              response ?? 'This record contains learning progress metadata rather than a written response.',
+              response ??
+                  progressSummary ??
+                  'This record contains learning progress metadata rather than a written response.',
               style: theme.textTheme.bodyMedium,
             ),
           ),

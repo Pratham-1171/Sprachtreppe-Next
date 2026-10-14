@@ -142,11 +142,23 @@ class AdminSubmission {
   final int? rating;
   final DateTime? reviewedAt;
 
+  bool get isProgressSync =>
+      summary['source'] == 'flutter_offline_progress_sync';
+
   String get assignmentTitle {
     final response = _adminMap(payload['assignment_response']);
+    if (isProgressSync) return 'Weekly progress sync';
     return (response?['title'] as String?) ??
         (summary['assignment_title'] as String?) ??
         'Learning activity';
+  }
+
+  String? get progressSummary {
+    if (!isProgressSync) return null;
+    final sessions = _adminInt(summary['session_count']);
+    final questions = _adminInt(summary['total_questions']);
+    final accuracy = _adminInt(summary['accuracy_percent']);
+    return '$sessions practice sessions · $questions questions · $accuracy% accuracy';
   }
 
   String? get writtenResponse {
