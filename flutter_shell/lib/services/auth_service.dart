@@ -100,6 +100,12 @@ class AuthService {
     );
   }
 
+  // Kept for the existing profile security screen. Login itself is OTP-only;
+  // this does not add password-based sign-in back to the app.
+  Future<void> sendPasswordReset(String email) async {
+    await _client.auth.resetPasswordForEmail(email.trim());
+  }
+
   Future<void> signOut() async {
     final userId = _client.auth.currentUser?.id;
     try {
