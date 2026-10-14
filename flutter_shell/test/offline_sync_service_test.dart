@@ -22,6 +22,35 @@ void main() {
       );
     });
 
+    test('snapshot changes when a written response is queued or edited', () {
+      final sessions = [firstSession];
+      final stats = ProgressStats.fromSessions(sessions, now: completedAt);
+      final noWrittenResponse = OfflineSyncService.sessionSnapshot(sessions, stats);
+      final queuedResponse = OfflineSyncService.sessionSnapshot(
+        sessions,
+        stats,
+        writtenSubmissions: const <String, Object>{
+          'writing-42-1': <String, Object>{
+            'assignment_id': 42,
+            'response': 'Hallo Anna!',
+          },
+        },
+      );
+      final editedResponse = OfflineSyncService.sessionSnapshot(
+        sessions,
+        stats,
+        writtenSubmissions: const <String, Object>{
+          'writing-42-2': <String, Object>{
+            'assignment_id': 42,
+            'response': 'Hallo Anna! Wie geht es dir?',
+          },
+        },
+      );
+
+      expect(queuedResponse, isNot(noWrittenResponse));
+      expect(editedResponse, isNot(queuedResponse));
+    });
+
     test('snapshot changes when unsynced assignment progress changes', () {
       final sessions = [firstSession];
       final stats = ProgressStats.fromSessions(sessions, now: completedAt);

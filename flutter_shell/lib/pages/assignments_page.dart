@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/student_assignment.dart';
 import '../services/assignment_service.dart';
 import '../services/assignment_submission_service.dart';
+import '../services/offline_assignment_submission_queue_service.dart';
 import 'practice_page.dart';
 
 class AssignmentsPage extends StatefulWidget {
@@ -151,6 +152,7 @@ class AssignmentDetailPage extends StatefulWidget {
 class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
   late final AssignmentService _service;
   late final AssignmentSubmissionService _submissionService;
+  late final OfflineAssignmentSubmissionQueueService _offlineSubmissionQueue;
   late StudentAssignment _item;
   final _responseController = TextEditingController();
   bool _refreshing = false;
@@ -158,6 +160,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
   bool _submittingResponse = false;
   int _draftRevision = 0;
   String? _submissionClientId;
+  bool _pendingOfflineSubmission = false;
   String? _submissionMessage;
   String? _submissionError;
 
@@ -169,6 +172,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     super.initState();
     _service = AssignmentService(Supabase.instance.client);
     _submissionService = AssignmentSubmissionService(Supabase.instance.client);
+    _offlineSubmissionQueue = OfflineAssignmentSubmissionQueueService(widget.userId);
     _item = widget.assignment;
     _loadDraft();
   }
@@ -183,7 +187,18 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     try {
       final preferences = await SharedPreferences.getInstance();
       final draft = preferences.getString(_draftKey);
-      if (mounted && draft != null && _responseController.text.isEmpty) {
+      final pending = await _offlineSubmissionQueue.loadOne(_item.id);
+      if (!mounted) return;
+
+      if (pending != null) {
+        _pendingOfflineSubmission = true;
+        _submissionClientId = pending.clientId;
+        final hasNewerDraft = draft != null && draft.trim() != pending.response;
+        _responseController.text = hasNewerDraft ? draft : pending.response;
+        _submissionMessage = hasNewerDraft
+            ? 'A previous response is queued for sync. Submit this edit to replace it.'
+            : 'Response saved on this device and waiting for the next successful sync.';
+      } else if (draft != null && _responseController.text.isEmpty) {
         _responseController.text = draft;
       }
     } catch (_) {
@@ -217,14 +232,30 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     }
     if (_submittingResponse || _draftLoading || _item.isCompleted) return;
 
-    final clientId = _submissionClientId ??
-        'assign-${_item.id}-${DateTime.now().microsecondsSinceEpoch}';
-    setState(() {
-      _submittingResponse = true;
-      _submissionError = null;
-      _submissionMessage = null;
-      _submissionClientId = clientId;
-    });
+    PendingWrittenSubmission? queued;
+    try {
+      // Persist before attempting the network request so a dropped connection
+      // cannot lose a response between server commit and client confirmation.
+      queued = await _offlineSubmissionQueue.enqueue(
+        assignment: _item,
+        response: response,
+      );
+    } catch (_) {
+      // Fall back to an online attempt if local queue storage is unavailable.
+    }
+
+    final clientId = queued?.clientId ??
+        _submissionClientId ??
+        'writing-${_item.id}-${DateTime.now().microsecondsSinceEpoch}';
+    if (mounted) {
+      setState(() {
+        _submittingResponse = true;
+        _submissionError = null;
+        _submissionMessage = null;
+        _submissionClientId = clientId;
+        _pendingOfflineSubmission = queued != null;
+      });
+    }
 
     try {
       await _submissionService.submitResponse(
@@ -232,6 +263,15 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
         response: response,
         clientId: clientId,
       );
+
+      if (queued != null) {
+        try {
+          await _offlineSubmissionQueue.clearSynced(queued);
+        } catch (_) {
+          // A repeat sync with this client ID is safe if local cleanup fails.
+        }
+      }
+
       final preferences = await SharedPreferences.getInstance();
       await preferences.remove(_draftKey);
       if (!mounted) return;
@@ -240,15 +280,36 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
         _submissionMessage = 'Response submitted for teacher review.';
         _submissionError = null;
         _submissionClientId = null;
+        _pendingOfflineSubmission = false;
         _responseController.clear();
       });
       await _refreshItem();
     } catch (_) {
+      // Queue it even if the first local write failed; never report success
+      // until submit_progress confirms the server accepted this client ID.
+      if (queued == null) {
+        try {
+          queued = await _offlineSubmissionQueue.enqueue(
+            assignment: _item,
+            response: response,
+          );
+        } catch (_) {
+          // Preserve the normal local draft as the final fallback.
+        }
+      }
       if (!mounted) return;
       setState(() {
         _submittingResponse = false;
-        _submissionError =
-            'Could not confirm submission. Your draft is kept on this device; reconnect and retry.';
+        if (queued != null) {
+          _submissionClientId = queued!.clientId;
+          _pendingOfflineSubmission = true;
+          _submissionError = null;
+          _submissionMessage =
+              'Response saved on this device. It will be sent for review during the next successful sync.';
+        } else {
+          _submissionError =
+              'Could not submit or queue the response. Your local draft is kept; reconnect and retry.';
+        }
       });
     }
   }
@@ -412,11 +473,13 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.send_outlined),
-              label: Text(_submittingResponse ? 'Submitting…' : 'Submit response'),
+              label: Text(_submittingResponse
+                  ? 'Submitting…'
+                  : (_pendingOfflineSubmission ? 'Update / submit response' : 'Submit response')),
             ),
             const SizedBox(height: 6),
             Text(
-              'Drafts are saved locally. Submitting requires an internet connection.',
+              'Drafts are saved locally. If submission cannot reach the server, your response is queued for the next successful sync.',
               style: theme.textTheme.bodySmall,
             ),
           ],

@@ -143,9 +143,12 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
       final assignmentMessage = result.assignmentProgressCount == 0
           ? ''
           : ' · ${result.assignmentProgressCount} assignment progress item(s)';
+      final writtenMessage = result.writtenSubmissionCount == 0
+          ? ''
+          : ' · ${result.writtenSubmissionCount} written response(s)';
       final message = 'Synced ${result.sessionCount} saved sessions · '
           '${result.totalQuestions} questions · ${result.accuracyPercent}% accuracy'
-          '$assignmentMessage.';
+          '$assignmentMessage$writtenMessage.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (!mounted) return;

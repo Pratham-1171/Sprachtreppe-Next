@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'assignment_submission_service.dart';
 import 'offline_assignment_progress_service.dart';
+import 'offline_assignment_submission_queue_service.dart';
 import 'progress_service.dart';
 
 class SyncFeedback {
@@ -38,6 +40,7 @@ class OfflineSyncResult {
     required this.correctAnswers,
     required this.accuracyPercent,
     required this.assignmentProgressCount,
+    required this.writtenSubmissionCount,
     required this.feedback,
   });
 
@@ -47,18 +50,21 @@ class OfflineSyncResult {
   final int correctAnswers;
   final int accuracyPercent;
   final int assignmentProgressCount;
+  final int writtenSubmissionCount;
   final List<SyncFeedback> feedback;
 }
 
 class OfflineSyncService {
   OfflineSyncService(this._client, this.userId)
       : _progress = ProgressService(userId),
-        _assignmentProgress = OfflineAssignmentProgressService(userId);
+        _assignmentProgress = OfflineAssignmentProgressService(userId),
+        _writtenSubmissions = OfflineAssignmentSubmissionQueueService(userId);
 
   final SupabaseClient _client;
   final String userId;
   final ProgressService _progress;
   final OfflineAssignmentProgressService _assignmentProgress;
+  final OfflineAssignmentSubmissionQueueService _writtenSubmissions;
 
   String get _lastSyncKey => 'sprachtreppe_last_sync_v1_$userId';
   String get _pendingClientIdKey => 'sprachtreppe_pending_sync_id_v1_$userId';
@@ -74,15 +80,22 @@ class OfflineSyncService {
     ProgressStats stats, {
     Map<String, Map<String, Object>> assignments =
         const <String, Map<String, Object>>{},
+    Map<String, Object> writtenSubmissions = const <String, Object>{},
   }) {
     final stableAssignments = <String, Object>{};
-    final keys = assignments.keys.toList()..sort();
-    for (final key in keys) {
+    final assignmentKeys = assignments.keys.toList()..sort();
+    for (final key in assignmentKeys) {
       stableAssignments[key] = assignments[key]!;
+    }
+    final stableWrittenSubmissions = <String, Object>{};
+    final writtenKeys = writtenSubmissions.keys.toList()..sort();
+    for (final key in writtenKeys) {
+      stableWrittenSubmissions[key] = writtenSubmissions[key]!;
     }
     return jsonEncode({
       'sessions': sessions.map((session) => session.toJson()).toList(),
       'assignments': stableAssignments,
+      'written_submissions': stableWrittenSubmissions,
       'summary': {
         'session_count': stats.totalSessions,
         'total_questions': stats.totalQuestions,
@@ -116,14 +129,26 @@ class OfflineSyncService {
     final sessions = await _progress.loadSessions();
     final stats = ProgressStats.fromSessions(sessions);
     final pendingAssignments = await _assignmentProgress.loadForSync();
+    final pendingWrittenSubmissions = await _writtenSubmissions.loadAll();
     final now = DateTime.now().toUtc();
 
-    // Assignment progress is part of the idempotency snapshot as well as the payload.
-    // An unchanged local state reuses its successful id on repeat sync.
+    Map<String, Object> writtenSnapshot(
+      List<PendingWrittenSubmission> submissions,
+    ) {
+      final result = <String, Object>{};
+      for (final submission in submissions) {
+        result[submission.clientId] = submission.toSnapshotJson();
+      }
+      return result;
+    }
+
+    // Include queued written responses in the local snapshot so retries are stable
+    // and new/edited answers are not mistaken for an unchanged successful sync.
     final snapshot = sessionSnapshot(
       sessions,
       stats,
       assignments: pendingAssignments,
+      writtenSubmissions: writtenSnapshot(pendingWrittenSubmissions),
     );
     final pendingClientId = preferences.getString(_pendingClientIdKey);
     final previousClientId = preferences.getString(_lastSyncedClientIdKey);
@@ -135,6 +160,37 @@ class OfflineSyncService {
       throw StateError('The local sync identifier is invalid. Clear app storage only if this persists.');
     }
     await preferences.setString(_pendingClientIdKey, clientId);
+
+    final feedback = <SyncFeedback>[];
+
+    // Send each queued written response with its own stable client ID. If one fails,
+    // its queue record stays locally and the global sync timestamp is not advanced.
+    for (final submission in pendingWrittenSubmissions) {
+      final rawWritten = await _client.rpc(
+        'submit_progress',
+        params: {
+          'p_payload': buildAssignmentResponsePayload(
+            assignment: submission.assignment,
+            response: submission.response,
+            submittedAt: submission.submittedAt,
+          ),
+          'p_client_id': submission.clientId,
+        },
+      );
+      if (rawWritten is! Map) {
+        throw StateError('The server returned an unexpected written-submission response.');
+      }
+      final writtenResult = Map<String, dynamic>.from(rawWritten);
+      if (writtenResult['ok'] != true || writtenResult['skipped'] == 'admin') {
+        throw StateError('The server did not confirm a queued written response.');
+      }
+      _appendFeedback(writtenResult, feedback);
+      try {
+        await _writtenSubmissions.clearSynced(submission);
+      } catch (_) {
+        // Idempotent client IDs make retrying an uncleared local record safe.
+      }
+    }
 
     final payload = <String, Object>{
       'summary': <String, Object>{
@@ -167,14 +223,7 @@ class OfflineSyncService {
     }
 
     final syncedAt = DateTime.tryParse(response['server_time']?.toString() ?? '') ?? now;
-    final feedback = <SyncFeedback>[];
-    final rawFeedback = response['feedback'];
-    if (rawFeedback is List) {
-      for (final row in rawFeedback.whereType<Map>()) {
-        final item = Map<String, dynamic>.from(row);
-        if (item['id'] is num) feedback.add(SyncFeedback.fromJson(item));
-      }
-    }
+    _appendFeedback(response, feedback);
 
     // Clear only the exact assignment snapshot sent above; newer local progress stays queued.
     try {
@@ -186,10 +235,12 @@ class OfflineSyncService {
     var snapshotAfterSync = snapshot;
     try {
       final remainingAssignments = await _assignmentProgress.loadForSync();
+      final remainingWrittenSubmissions = await _writtenSubmissions.loadAll();
       snapshotAfterSync = sessionSnapshot(
         sessions,
         stats,
         assignments: remainingAssignments,
+        writtenSubmissions: writtenSnapshot(remainingWrittenSubmissions),
       );
     } catch (_) {
       // Keep the existing stable snapshot if reading the local queue fails.
@@ -207,7 +258,10 @@ class OfflineSyncService {
       correctAnswers: stats.correctAnswers,
       accuracyPercent: stats.accuracyPercent,
       assignmentProgressCount: pendingAssignments.length,
-      feedback: feedback,
+      writtenSubmissionCount: pendingWrittenSubmissions.length,
+      feedback: {
+        for (final item in feedback) item.id: item,
+      }.values.toList(),
     );
   }
 
@@ -215,5 +269,18 @@ class OfflineSyncService {
     final uniqueIds = ids.toSet().toList();
     if (uniqueIds.isEmpty) return;
     await _client.rpc('ack_feedback', params: {'p_ids': uniqueIds});
+  }
+}
+
+
+void _appendFeedback(
+  Map<String, dynamic> response,
+  List<SyncFeedback> destination,
+) {
+  final raw = response['feedback'];
+  if (raw is! List) return;
+  for (final row in raw.whereType<Map>()) {
+    final item = Map<String, dynamic>.from(row);
+    if (item['id'] is num) destination.add(SyncFeedback.fromJson(item));
   }
 }
