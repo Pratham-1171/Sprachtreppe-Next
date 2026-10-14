@@ -130,6 +130,32 @@ class AdminWorkspaceService {
     });
   }
 
+  Future<void> createAnnouncement({
+    required String adminId,
+    required String title,
+    required String body,
+    required int? classId,
+    required bool pinned,
+    required DateTime? expiresAt,
+  }) async {
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+    if (cleanTitle.isEmpty || cleanTitle.length > 120) {
+      throw ArgumentError('Announcement title must be 1–120 characters.');
+    }
+    if (cleanBody.isEmpty || cleanBody.length > 2000) {
+      throw ArgumentError('Announcement message must be 1–2000 characters.');
+    }
+    await _client.from('announcements').insert({
+      'created_by': adminId,
+      'title': cleanTitle,
+      'body': cleanBody,
+      'class_id': classId,
+      'pinned': pinned,
+      'expires_at': expiresAt?.toUtc().toIso8601String(),
+    });
+  }
+
   Future<void> reviewSubmission({
     required int submissionId,
     required String adminId,

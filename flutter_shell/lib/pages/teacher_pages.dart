@@ -42,6 +42,7 @@ class _TeacherWorkspacePage extends StatefulWidget {
 class _TeacherWorkspacePageState extends State<_TeacherWorkspacePage> {
   late final TeacherWorkspaceService _service;
   late Future<TeacherWorkspace> _future;
+  bool _publishingAnnouncement = false;
 
   @override
   void initState() {
@@ -60,6 +61,41 @@ class _TeacherWorkspacePageState extends State<_TeacherWorkspacePage> {
       await _future;
     } catch (_) {
       // FutureBuilder shows a retryable error state.
+    }
+  }
+
+  Future<void> _createAnnouncement(TeacherWorkspace data) async {
+    if (_publishingAnnouncement || data.classes.isEmpty) return;
+    final draft = await showDialog<_TeacherAnnouncementDraft>(
+      context: context,
+      builder: (_) => _TeacherAnnouncementDialog(classes: data.classes),
+    );
+    if (draft == null || !mounted) return;
+
+    setState(() => _publishingAnnouncement = true);
+    try {
+      await _service.createAnnouncement(
+        classId: draft.classId,
+        title: draft.title,
+        body: draft.body,
+        pinned: draft.pinned,
+        expiresAt: draft.expiresAt,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Announcement published to the selected class.')),
+      );
+      setState(_load);
+      await _future;
+    } catch (error) {
+      if (!mounted) return;
+      var message = error.toString().replaceFirst('Exception: ', '').replaceFirst('Invalid argument(s): ', '');
+      if (message.length > 180) message = '${message.substring(0, 177)}…';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not publish announcement: $message')),
+      );
+    } finally {
+      if (mounted) setState(() => _publishingAnnouncement = false);
     }
   }
 
@@ -106,6 +142,25 @@ class _TeacherWorkspacePageState extends State<_TeacherWorkspacePage> {
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 16),
+              if (widget.section == _TeacherSection.classes) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: _publishingAnnouncement || data.classes.isEmpty
+                        ? null
+                        : () => _createAnnouncement(data),
+                    icon: _publishingAnnouncement
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.campaign_outlined),
+                    label: Text(_publishingAnnouncement ? 'Publishing…' : 'New announcement'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               switch (widget.section) {
                 _TeacherSection.dashboard => _DashboardContent(data: data),
                 _TeacherSection.classes => _ClassesContent(data: data),
@@ -577,3 +632,157 @@ String _label(String value) {
           : '${part.substring(0, 1).toUpperCase()}${part.substring(1).toLowerCase()}')
       .join(' ');
 }
+
+
+class _TeacherAnnouncementDraft {
+  const _TeacherAnnouncementDraft({
+    required this.classId,
+    required this.title,
+    required this.body,
+    required this.pinned,
+    required this.expiresAt,
+  });
+
+  final int classId;
+  final String title;
+  final String body;
+  final bool pinned;
+  final DateTime? expiresAt;
+}
+
+class _TeacherAnnouncementDialog extends StatefulWidget {
+  const _TeacherAnnouncementDialog({required this.classes});
+
+  final List<TeacherClass> classes;
+
+  @override
+  State<_TeacherAnnouncementDialog> createState() => _TeacherAnnouncementDialogState();
+}
+
+class _TeacherAnnouncementDialogState extends State<_TeacherAnnouncementDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _body = TextEditingController();
+  int? _classId;
+  bool _pinned = false;
+  DateTime? _expiresAt;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.classes.isNotEmpty) _classId = widget.classes.first.id;
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  Future<void> _chooseExpiry() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _expiresAt ?? now.add(const Duration(days: 7)),
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (date != null && mounted) setState(() => _expiresAt = date);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Publish announcement'),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int>(
+                    initialValue: _classId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Class'),
+                    items: [
+                      for (final classroom in widget.classes)
+                        DropdownMenuItem<int>(
+                          value: classroom.id,
+                          child: Text(classroom.name, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    validator: (value) => value == null ? 'Choose a class' : null,
+                    onChanged: (value) => setState(() => _classId = value),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _title,
+                    maxLength: 120,
+                    decoration: const InputDecoration(labelText: 'Title'),
+                    validator: (value) =>
+                        (value?.trim().isEmpty ?? true) ? 'Enter an announcement title' : null,
+                  ),
+                  TextFormField(
+                    controller: _body,
+                    minLines: 3,
+                    maxLines: 6,
+                    maxLength: 2000,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Message',
+                      hintText: 'Exam reminders, revision plans or class updates…',
+                      alignLabelWithHint: true,
+                    ),
+                    validator: (value) =>
+                        (value?.trim().isEmpty ?? true) ? 'Enter a message' : null,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Pin announcement'),
+                    subtitle: const Text('Pinned messages appear first.'),
+                    value: _pinned,
+                    onChanged: (value) => setState(() => _pinned = value),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: _chooseExpiry,
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(_expiresAt == null ? 'Optional expiry date' : 'Expires ${_dateLabel(_expiresAt!)}'),
+                    ),
+                  ),
+                  if (_expiresAt != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => setState(() => _expiresAt = null),
+                        child: const Text('Keep announcement until removed'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              if (!_formKey.currentState!.validate() || _classId == null) return;
+              Navigator.pop(
+                context,
+                _TeacherAnnouncementDraft(
+                  classId: _classId!,
+                  title: _title.text.trim(),
+                  body: _body.text.trim(),
+                  pinned: _pinned,
+                  expiresAt: _expiresAt,
+                ),
+              );
+            },
+            child: const Text('Publish'),
+          ),
+        ],
+      );

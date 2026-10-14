@@ -407,12 +407,17 @@ class _AdminToolsState extends State<_AdminTools> {
   final _instructions = TextEditingController();
   final _skill = TextEditingController(text: 'grammar');
   final _target = TextEditingController(text: '10');
+  final _announcementTitle = TextEditingController();
+  final _announcementBody = TextEditingController();
   String? _teacherId;
   String? _studentId;
   String? _teacherClassId;
   String _assignmentClass = 'all';
   String _kind = 'practice';
+  String _announcementClass = 'all';
+  bool _announcementPinned = true;
   DateTime? _dueAt;
+  DateTime? _announcementExpiresAt;
   bool _busy = false;
 
   @override
@@ -423,6 +428,8 @@ class _AdminToolsState extends State<_AdminTools> {
     _instructions.dispose();
     _skill.dispose();
     _target.dispose();
+    _announcementTitle.dispose();
+    _announcementBody.dispose();
     super.dispose();
   }
 
@@ -520,6 +527,44 @@ class _AdminToolsState extends State<_AdminTools> {
     );
     _title.clear();
     _instructions.clear();
+  }
+
+  Future<void> _createAnnouncement() async {
+    final title = _announcementTitle.text.trim();
+    final body = _announcementBody.text.trim();
+    if (title.isEmpty || title.length > 120) {
+      _message('Announcement title must be 1–120 characters.');
+      return;
+    }
+    if (body.isEmpty || body.length > 2000) {
+      _message('Announcement message must be 1–2000 characters.');
+      return;
+    }
+    final classId = _announcementClass == 'all' ? null : int.tryParse(_announcementClass);
+    await _act(
+      () => widget.service.createAnnouncement(
+        adminId: widget.adminId,
+        title: title,
+        body: body,
+        classId: classId,
+        pinned: _announcementPinned,
+        expiresAt: _announcementExpiresAt,
+      ),
+      classId == null ? 'School-wide announcement published.' : 'Class announcement published.',
+    );
+    _announcementTitle.clear();
+    _announcementBody.clear();
+  }
+
+  Future<void> _chooseAnnouncementExpiry() async {
+    final now = DateTime.now();
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _announcementExpiresAt ?? now.add(const Duration(days: 7)),
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (selected != null && mounted) setState(() => _announcementExpiresAt = selected);
   }
 
   void _message(String value) {
@@ -744,6 +789,80 @@ class _AdminToolsState extends State<_AdminTools> {
                   onPressed: _busy ? null : _createAssignment,
                   icon: const Icon(Icons.assignment_turned_in_outlined),
                   label: const Text('Create assignment'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _FormCard(
+            title: 'Publish announcement',
+            note: 'Publish to the whole school or target one class. Access is enforced by Supabase RLS.',
+            children: [
+              TextField(
+                controller: _announcementTitle,
+                maxLength: 120,
+                decoration: const InputDecoration(labelText: 'Announcement title'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _announcementBody,
+                minLines: 3,
+                maxLines: 5,
+                maxLength: 2000,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Message',
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _validAssignmentClass(_announcementClass, widget.data.classes),
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Audience'),
+                items: [
+                  const DropdownMenuItem(value: 'all', child: Text('Whole school')),
+                  for (final classroom in widget.data.classes)
+                    DropdownMenuItem(
+                      value: classroom.id.toString(),
+                      child: Text(classroom.name, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: _busy ? null : (value) => setState(() => _announcementClass = value ?? 'all'),
+              ),
+              const SizedBox(height: 4),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Pin announcement'),
+                subtitle: const Text('Pinned messages appear first.'),
+                value: _announcementPinned,
+                onChanged: _busy ? null : (value) => setState(() => _announcementPinned = value),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _chooseAnnouncementExpiry,
+                  icon: const Icon(Icons.event_outlined),
+                  label: Text(_announcementExpiresAt == null
+                      ? 'Optional expiry date'
+                      : 'Expires ${_dateLabel(_announcementExpiresAt!)}'),
+                ),
+              ),
+              if (_announcementExpiresAt != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: _busy ? null : () => setState(() => _announcementExpiresAt = null),
+                    child: const Text('Keep until removed'),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _busy ? null : _createAnnouncement,
+                  icon: const Icon(Icons.campaign_outlined),
+                  label: const Text('Publish announcement'),
                 ),
               ),
             ],
