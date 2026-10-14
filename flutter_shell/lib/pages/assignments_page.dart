@@ -346,7 +346,7 @@ class _CountTile extends StatelessWidget {
     return Card(child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       child: Column(children: [
-        Text('${count}', style: theme.textTheme.titleLarge),
+        Text('$count', style: theme.textTheme.titleLarge),
         const SizedBox(height: 2),
         Text(label, style: theme.textTheme.labelMedium),
       ]),
