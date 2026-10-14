@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/student_assignment.dart';
 import '../services/assignment_service.dart';
+import '../services/assignment_submission_service.dart';
 import 'practice_page.dart';
 
 class AssignmentsPage extends StatefulWidget {
@@ -148,14 +150,107 @@ class AssignmentDetailPage extends StatefulWidget {
 
 class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
   late final AssignmentService _service;
+  late final AssignmentSubmissionService _submissionService;
   late StudentAssignment _item;
+  final _responseController = TextEditingController();
   bool _refreshing = false;
+  bool _draftLoading = true;
+  bool _submittingResponse = false;
+  int _draftRevision = 0;
+  String? _submissionClientId;
+  String? _submissionMessage;
+  String? _submissionError;
+
+  String get _draftKey =>
+      'sprachtreppe_assignment_draft_v1_${widget.userId}_${_item.id}';
 
   @override
   void initState() {
     super.initState();
     _service = AssignmentService(Supabase.instance.client);
+    _submissionService = AssignmentSubmissionService(Supabase.instance.client);
     _item = widget.assignment;
+    _loadDraft();
+  }
+
+  @override
+  void dispose() {
+    _responseController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final draft = preferences.getString(_draftKey);
+      if (mounted && draft != null && _responseController.text.isEmpty) {
+        _responseController.text = draft;
+      }
+    } catch (_) {
+      // Draft persistence is optional if local storage is unavailable.
+    } finally {
+      if (mounted) setState(() => _draftLoading = false);
+    }
+  }
+
+  Future<void> _saveDraft(String value) async {
+    _submissionClientId = null;
+    final revision = ++_draftRevision;
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      if (revision != _draftRevision) return;
+      if (value.trim().isEmpty) {
+        await preferences.remove(_draftKey);
+      } else {
+        await preferences.setString(_draftKey, value);
+      }
+    } catch (_) {
+      // Submission remains possible even if a local draft cannot be stored.
+    }
+  }
+
+  Future<void> _submitResponse() async {
+    final response = _responseController.text.trim();
+    if (response.isEmpty) {
+      setState(() => _submissionError = 'Write your answer before submitting.');
+      return;
+    }
+    if (_submittingResponse || _draftLoading || _item.isCompleted) return;
+
+    final clientId = _submissionClientId ??
+        'assign-${_item.id}-${DateTime.now().microsecondsSinceEpoch}';
+    setState(() {
+      _submittingResponse = true;
+      _submissionError = null;
+      _submissionMessage = null;
+      _submissionClientId = clientId;
+    });
+
+    try {
+      await _submissionService.submitResponse(
+        assignment: _item,
+        response: response,
+        clientId: clientId,
+      );
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.remove(_draftKey);
+      if (!mounted) return;
+      setState(() {
+        _submittingResponse = false;
+        _submissionMessage = 'Response submitted for teacher review.';
+        _submissionError = null;
+        _submissionClientId = null;
+        _responseController.clear();
+      });
+      await _refreshItem();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _submittingResponse = false;
+        _submissionError =
+            'Could not confirm submission. Your draft is kept on this device; reconnect and retry.';
+      });
+    }
   }
 
   Future<void> _refreshItem() async {
@@ -269,8 +364,66 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
               icon: const Icon(Icons.play_arrow_rounded),
               label: const Text('Start assignment practice'),
             )
-          else
-            const _Notice('Instructions are available here. In-app reading/writing response submission is not enabled yet; this task will not be marked submitted from this screen.'),
+          else ...[
+            Text(
+              item.kind.toLowerCase() == 'reading'
+                  ? 'Write your answers or a short summary below.'
+                  : 'Write your response below. It will be sent for teacher review.',
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _responseController,
+              enabled: !_draftLoading && !_submittingResponse,
+              minLines: 5,
+              maxLines: 10,
+              maxLength: 5000,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (value) {
+                setState(() {
+                  _submissionError = null;
+                  _submissionMessage = null;
+                });
+                _saveDraft(value);
+              },
+              decoration: InputDecoration(
+                labelText: item.kind.toLowerCase() == 'reading'
+                    ? 'Your reading answer'
+                    : 'Your written response',
+                hintText: 'Write in German. You can return to this draft later.',
+                alignLabelWithHint: true,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            if (_draftLoading) const LinearProgressIndicator(),
+            if (_submissionError != null) ...[
+              const SizedBox(height: 6),
+              _Notice(_submissionError!),
+            ],
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: _draftLoading || _submittingResponse || item.isCompleted
+                  ? null
+                  : _submitResponse,
+              icon: _submittingResponse
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_outlined),
+              label: Text(_submittingResponse ? 'Submitting…' : 'Submit response'),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Drafts are saved locally. Submitting requires an internet connection.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+          if (_submissionMessage != null) ...[
+            const SizedBox(height: 10),
+            _Notice(_submissionMessage!),
+          ],
         ],
       ),
     );
