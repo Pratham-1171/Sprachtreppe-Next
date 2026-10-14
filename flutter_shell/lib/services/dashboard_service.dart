@@ -58,6 +58,27 @@ class AnnouncementSummary {
   final String body;
   final DateTime? createdAt;
   final bool pinned;
+
+  static List<AnnouncementSummary> fromRows(
+    Iterable<dynamic> rows, {
+    int limit = 5,
+  }) {
+    final announcements = rows.whereType<Map>().map((row) {
+      final item = Map<String, dynamic>.from(row);
+      return AnnouncementSummary(
+        title: item['title'] as String? ?? 'Announcement',
+        body: item['body'] as String? ?? '',
+        createdAt: DateTime.tryParse(item['created_at']?.toString() ?? ''),
+        pinned: item['pinned'] as bool? ?? false,
+      );
+    }).toList()
+      ..sort((a, b) {
+        if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+        return (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+            .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0));
+      });
+    return announcements.take(limit < 0 ? 0 : limit).toList();
+  }
 }
 
 class DashboardService {
@@ -131,16 +152,33 @@ class DashboardService {
         .eq('user_id', studentId)
         .isFilter('read_at', null);
 
-    final announcementRows = classIds.isEmpty
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    // School-wide announcements have class_id = null, so load them separately
+    // from class announcements and merge the two lists before applying the cap.
+    final globalAnnouncementRows = await _client
+        .from('announcements')
+        .select('title, body, pinned, created_at')
+        .isFilter('class_id', null)
+        .or('expires_at.is.null,expires_at.gt.$nowIso')
+        .order('pinned', ascending: false)
+        .order('created_at', ascending: false)
+        .limit(5);
+
+    final classAnnouncementRows = classIds.isEmpty
         ? const <dynamic>[]
         : await _client
             .from('announcements')
             .select('title, body, pinned, created_at')
             .inFilter('class_id', classIds)
-            .or('expires_at.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}')
+            .or('expires_at.is.null,expires_at.gt.$nowIso')
             .order('pinned', ascending: false)
             .order('created_at', ascending: false)
             .limit(5);
+
+    final allAnnouncementRows = <dynamic>[
+      ...(globalAnnouncementRows as List),
+      ...classAnnouncementRows,
+    ];
 
     return DashboardData(
       classes: classNames.entries
@@ -149,14 +187,7 @@ class DashboardService {
       pendingAssignments: assignments.where((a) => !a.completed).take(5).toList(),
       completedAssignments: assignments.where((a) => a.completed).length,
       unreadNotifications: notifications.length,
-      recentAnnouncements: announcementRows.map((row) {
-        return AnnouncementSummary(
-          title: (row['title'] as String?) ?? 'Announcement',
-          body: (row['body'] as String?) ?? '',
-          createdAt: DateTime.tryParse(row['created_at'] as String? ?? ''),
-          pinned: (row['pinned'] as bool?) ?? false,
-        );
-      }).toList(),
+      recentAnnouncements: AnnouncementSummary.fromRows(allAnnouncementRows),
     );
   }
 }

@@ -9,7 +9,7 @@ Flutter replaces the legacy LMS feature-by-feature. A legacy module is removed o
 ## Current migration status
 
 - ✅ Mobile-first Flutter shell, sign-in and role-based navigation
-- ✅ Supabase-backed student dashboard with classes, assignments, announcements and local study statistics
+- 🚧 Supabase-backed student dashboard with classes, assignments, class and school-wide announcements, and local study statistics (global-announcement visibility fix under CI verification)
 - ✅ A1–B1 course outline, searchable offline vocabulary and grammar library
 - ✅ Offline practice quizzes with locally stored session history, accuracy and streaks
 - ✅ Last-approved profile cache for restoring the learning UI after recognized network failures (CI passed; device verification pending)
