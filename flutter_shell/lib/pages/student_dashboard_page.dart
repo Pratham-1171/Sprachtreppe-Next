@@ -16,6 +16,7 @@ class StudentDashboardPage extends StatefulWidget {
 }
 
 class _StudentDashboardPageState extends State<StudentDashboardPage> {
+  late final DashboardService _dashboardService;
   late Future<DashboardData> _future;
   late Future<ProgressStats> _progressFuture;
   late Future<DateTime?> _lastSyncFuture;
@@ -24,12 +25,13 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   @override
   void initState() {
     super.initState();
+    _dashboardService = DashboardService(Supabase.instance.client);
     _syncService = OfflineSyncService(Supabase.instance.client, widget.user.id);
     _load();
   }
 
   void _load() {
-    _future = DashboardService(Supabase.instance.client).load(widget.user.id);
+    _future = _dashboardService.load(widget.user.id);
     _progressFuture = ProgressService(widget.user.id).loadStats();
     _lastSyncFuture = _syncService.loadLastSyncAt();
   }
@@ -76,6 +78,10 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
               const SizedBox(height: 4),
               Text('Keep your German progress moving.',
                   style: Theme.of(context).textTheme.bodyLarge),
+              if (_dashboardService.lastLoadUsedCache) ...[
+                const SizedBox(height: 10),
+                const _OfflineDashboardNotice(),
+              ],
               const SizedBox(height: 18),
               _StatsGrid(data: data),
               const SizedBox(height: 10),
@@ -440,4 +446,28 @@ class _SyncReminderCard extends StatelessWidget {
       ),
     );
   }
+}
+
+
+class _OfflineDashboardNotice extends StatelessWidget {
+  const _OfflineDashboardNotice();
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.wifi_off_outlined),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Offline view: showing the last saved dashboard. Connect to refresh classes, assignments and announcements.',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }

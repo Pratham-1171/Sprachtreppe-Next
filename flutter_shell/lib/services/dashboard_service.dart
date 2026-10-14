@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DashboardData {
@@ -14,6 +17,74 @@ class DashboardData {
   final int completedAssignments;
   final int unreadNotifications;
   final List<AnnouncementSummary> recentAnnouncements;
+
+  Map<String, Object?> toCacheJson() => {
+        'classes': [
+          for (final item in classes)
+            {'id': item.id, 'name': item.name},
+        ],
+        'pending_assignments': [
+          for (final item in pendingAssignments)
+            {
+              'id': item.id,
+              'title': item.title,
+              'skill': item.skill,
+              'due_at': item.dueAt?.toIso8601String(),
+              'target_count': item.targetCount,
+              'done': item.done,
+              'correct': item.correct,
+              'class_name': item.className,
+            },
+        ],
+        'completed_assignments': completedAssignments,
+        'unread_notifications': unreadNotifications,
+        'announcements': [
+          for (final item in recentAnnouncements)
+            {
+              'title': item.title,
+              'body': item.body,
+              'created_at': item.createdAt?.toIso8601String(),
+              'pinned': item.pinned,
+            },
+        ],
+      };
+
+  static DashboardData fromCacheJson(String encoded) {
+    final decoded = jsonDecode(encoded);
+    if (decoded is! Map) throw const FormatException('Invalid dashboard cache.');
+    final cache = Map<String, dynamic>.from(decoded);
+    List<Map<String, dynamic>> rows(String key) {
+      final value = cache[key];
+      if (value is! List) return const [];
+      return value.whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row)).toList();
+    }
+
+    int number(dynamic value) {
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? 0;
+    }
+
+    return DashboardData(
+      classes: rows('classes').map((row) => ClassSummary(
+        id: number(row['id']),
+        name: row['name'] as String? ?? 'Class',
+      )).toList(),
+      pendingAssignments: rows('pending_assignments').map((row) => AssignmentSummary(
+        id: number(row['id']),
+        title: row['title'] as String? ?? 'Assignment',
+        skill: row['skill'] as String? ?? 'Practice',
+        dueAt: DateTime.tryParse(row['due_at']?.toString() ?? ''),
+        targetCount: number(row['target_count']),
+        done: number(row['done']),
+        correct: number(row['correct']),
+        className: row['class_name'] as String? ?? 'Class',
+      )).toList(),
+      completedAssignments: number(cache['completed_assignments']),
+      unreadNotifications: number(cache['unread_notifications']),
+      recentAnnouncements: AnnouncementSummary.fromRows(rows('announcements')),
+    );
+  }
 }
 
 class ClassSummary {
@@ -85,8 +156,40 @@ class DashboardService {
   DashboardService(this._client);
 
   final SupabaseClient _client;
+  bool _lastLoadUsedCache = false;
+
+  bool get lastLoadUsedCache => _lastLoadUsedCache;
+
+  String _cacheKey(String studentId) => 'sprachtreppe_dashboard_cache_v1_$studentId';
 
   Future<DashboardData> load(String studentId) async {
+    _lastLoadUsedCache = false;
+    try {
+      final data = await _loadOnline(studentId);
+      // Cache writes are best-effort; don't turn a valid online dashboard into an error.
+      try {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(_cacheKey(studentId), jsonEncode(data.toCacheJson()));
+      } catch (_) {}
+      return data;
+    } catch (error) {
+      if (!isDashboardConnectivityFailure(error)) rethrow;
+      try {
+        final preferences = await SharedPreferences.getInstance();
+        final encoded = preferences.getString(_cacheKey(studentId));
+        if (encoded != null) {
+          final cached = DashboardData.fromCacheJson(encoded);
+          _lastLoadUsedCache = true;
+          return cached;
+        }
+      } catch (_) {
+        // Invalid or unreadable cache is not a substitute for a failed server request.
+      }
+      rethrow;
+    }
+  }
+
+  Future<DashboardData> _loadOnline(String studentId) async {
     final memberships = await _client
         .from('class_members')
         .select('class_id, classes(id, name)')
@@ -190,4 +293,17 @@ class DashboardService {
       recentAnnouncements: AnnouncementSummary.fromRows(allAnnouncementRows),
     );
   }
+}
+
+
+bool isDashboardConnectivityFailure(Object error) {
+  final message = error.toString().toLowerCase();
+  return message.contains('socketexception') ||
+      message.contains('failed host lookup') ||
+      message.contains('no address associated with hostname') ||
+      message.contains('network is unreachable') ||
+      message.contains('connection timed out') ||
+      message.contains('connection reset') ||
+      message.contains('connection refused') ||
+      message.contains('handshakeexception');
 }
