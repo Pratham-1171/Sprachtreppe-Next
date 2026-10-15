@@ -3,7 +3,7 @@ function createServer(opts) {
   opts = opts || {};
   const S = {users: new Map(), tokens: new Map(), refresh: new Map(), subs: [], nextSub: 1, offline: false, autoConfirm: opts.autoConfirm !== false, log: [], idc: 1};
   const uid = () => 'u' + (S.idc++).toString().padStart(4, '0') + '-0000-0000-0000-000000000000';
-  S.addUser = (email, password, o) => { o = o || {}; const u = {id: uid(), email, password, full_name: o.name || '', role: o.role || 'student', approved: !!o.approved}; S.users.set(email, u); return u; };
+  S.addUser = (email, password, o) => { o = o || {}; const key = String(email).trim().toLowerCase(); const u = {id: uid(), email: key, password, full_name: o.name || '', role: o.role || 'student', approved: !!o.approved}; S.users.set(key, u); return u; };
   const byId = id => [...S.users.values()].find(u => u.id === id);
   const session = u => {
     const a = 'at.' + Math.random().toString(36).slice(2), r = 'rt.' + Math.random().toString(36).slice(2);
@@ -28,14 +28,17 @@ function createServer(opts) {
       return S.autoConfirm ? R(200, session(usr)) : R(200, {id: usr.id, email: usr.email});
     }
     if (p === '/auth/v1/otp') {
-      const usr = S.users.get(body.email);
+      const email = String(body.email || '').trim().toLowerCase();
+      let usr = S.users.get(email);
+      if (!usr && body.create_user === true) usr = S.addUser(email, '', {name: body.data && body.data.full_name || '', role: 'student', approved: false});
       if (!usr) return R(422, {error_code: 'otp_disabled', msg: 'Signups not allowed for otp'});
-      S.otps = S.otps || {}; S.otps[body.email] = '482913'; S.otpSent = (S.otpSent || 0) + 1; return R(200, {});
+      S.otps = S.otps || {}; S.otps[email] = '482913'; S.otpSent = (S.otpSent || 0) + 1; return R(200, {});
     }
     if (p === '/auth/v1/verify') {
-      const usr = S.users.get(body.email);
-      if (body.type !== 'email' || !usr || !S.otps || S.otps[body.email] !== body.token) return R(403, {error_code: 'otp_expired', msg: 'Token has expired or is invalid'});
-      delete S.otps[body.email]; return R(200, session(usr));
+      const email = String(body.email || '').trim().toLowerCase();
+      const usr = S.users.get(email);
+      if (body.type !== 'email' || !usr || !S.otps || S.otps[email] !== body.token) return R(403, {error_code: 'otp_expired', msg: 'Token has expired or is invalid'});
+      delete S.otps[email]; return R(200, session(usr));
     }
     if (p === '/auth/v1/logout') { S.tokens.delete((headers.Authorization || '').replace('Bearer ', '')); return R(204, null); }
     if (p === '/auth/v1/recover') return R(200, {});
@@ -51,6 +54,19 @@ function createServer(opts) {
       if (!isAdmin(me)) return R(200, []);                                                       // RLS: zero rows
       if (Object.keys(body).some(k => k !== 'approved')) return R(403, {message: 'permission denied', code: '42501'});
       const id = q.get('id').replace('eq.', ''); const t = byId(id); if (t) t.approved = !!body.approved; return R(204, null);
+    }
+    if (p === '/rest/v1/rpc/complete_student_signup') {
+      if (!me || me.role !== 'student' || me.approved) return R(403, {message: 'student registration unavailable', code: '42501'});
+      const full = String(body.p_full_name || '').trim().slice(0, 80);
+      if (!full) return R(400, {message: 'full name is required', code: '22023'});
+      me.full_name = full; return R(200, {id: me.id, email: me.email, full_name: me.full_name, role: me.role, approved: me.approved});
+    }
+    if (p === '/rest/v1/rpc/admin_set_user_role') {
+      if (!isAdmin(me)) return R(403, {message: 'forbidden', code: '42501'});
+      if (!['student', 'teacher', 'admin'].includes(body.p_role)) return R(400, {message: 'invalid role', code: '22023'});
+      const target = byId(body.p_user_id); if (!target) return R(404, {message: 'user profile not found'});
+      target.role = body.p_role; if (body.p_role === 'teacher' || body.p_role === 'admin') target.approved = true;
+      return R(200, {id: target.id, email: target.email, full_name: target.full_name, role: target.role, approved: target.approved});
     }
     if (p === '/rest/v1/rpc/submit_progress') {
       if (!me.approved) return R(403, {message: 'account not approved', code: '42501'});

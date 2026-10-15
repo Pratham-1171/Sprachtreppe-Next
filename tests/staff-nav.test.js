@@ -21,14 +21,12 @@ function boot(server) {
 }
 async function login(w, email, who) {
   await wait(400);
-  if (who === 'admin') {
-    $(w, '[data-who=admin]').click();
-    await wait(10);
-    $(w, '#spMethod').click();
-    await wait(10);
-  }
+  if (who === 'admin') { $(w, '[data-who=admin]').click(); await wait(10); }
   $(w, '#spEmail').value = email;
-  if ($(w, '#spPw')) $(w, '#spPw').value = PW;
+  $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true}));
+  await wait(120);
+  const code = $(w, '#spCode'); assert.ok(code, 'login uses emailed OTP');
+  code.value = '482913';
   $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true}));
   await wait(250);
 }
@@ -47,7 +45,7 @@ test('staff workspace inherits the shared Sprachtreppe theme without replacing i
   const server = createServer();
   server.addUser('teacher-theme@school.org', PW, {role: 'teacher', approved: true, name: 'Theme Test'});
   const {window: w, errors} = boot(server);
-  await login(w, 'teacher-theme@school.org');
+  await login(w, 'teacher-theme@school.org', 'admin');
   await wait(500);
   const css = w.document.querySelector('#spTheme');
   assert.ok(css, 'staff theme stylesheet is installed');
@@ -60,7 +58,7 @@ test('teachers only see classroom, assignments and announcements; learning route
   const server = createServer();
   server.addUser('teacher@school.org', PW, {role: 'teacher', approved: true, name: 'Test Teacher'});
   const {window: w, errors} = boot(server);
-  await login(w, 'teacher@school.org');
+  await login(w, 'teacher@school.org', 'admin');
   await wait(800);
   assert.equal(w.SP_LMS.isStaff(), true);
   const nav = await routes(w);

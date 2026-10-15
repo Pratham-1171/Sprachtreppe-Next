@@ -16,10 +16,18 @@ function boot(server, storage, setup) {
 }
 const dump = w => { const o = {}; for (let i = 0; i < w.localStorage.length; i++) { const k = w.localStorage.key(i); o[k] = w.localStorage.getItem(k); } return o; };
 const $ = (w, s) => w.document.querySelector(s);
-async function fillLogin(w, email, pw, who) {
-  if (who === 'admin') { $(w, '[data-who=admin]').click(); await wait(10); $(w, '#spMethod').click(); await wait(10); }
-  $(w, '#spEmail').value = email; $(w, '#spPw').value = pw;
-  $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true})); await wait(120);
+async function fillLogin(w, email, credential, who) {
+  if (who === 'admin') { $(w, '[data-who=admin]').click(); await wait(10); }
+  if (!$(w, '#spCode')) {
+    $(w, '#spEmail').value = email;
+    $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true}));
+    await wait(120);
+  }
+  const code = $(w, '#spCode');
+  if (!code) return;
+  code.value = credential === PW || credential === '482913' ? '482913' : '000000';
+  $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true}));
+  await wait(200);
 }
 const hash = async (w, h) => { w.location.hash = h; w.dispatchEvent(new w.HashChangeEvent('hashchange')); await wait(150); };
 
@@ -32,12 +40,12 @@ test('build safety: refuses to build without a backend, with a service_role key,
   const f = require('fs').readFileSync(html(), 'utf8');
   assert.ok(!/service_role/.test(f), 'no service key in the app'); assert.ok(f.includes(SB));
 });
-test('the app starts locked: login screen first, no password anywhere on the device after login', async () => {
+test('the app starts locked and uses OTP without storing a password', async () => {
   const s = createServer(); s.addUser('anna@school.org', PW, {name: 'Anna', approved: true});
   const {window: w, errors} = boot(s); await wait(500);
   assert.ok(w.document.body.classList.contains('sp-locked')); assert.ok($(w, '#spAuth'));
   await fillLogin(w, 'anna@school.org', 'wrong-password-1');
-  assert.match($(w, '#spErr').textContent, /Invalid email or password/); assert.ok($(w, '#spAuth'), 'still locked');
+  assert.match($(w, '#spErr').textContent, /Invalid or expired code/); assert.ok($(w, '#spAuth'), 'still locked');
   await fillLogin(w, 'anna@school.org', PW);
   assert.ok(!$(w, '#spAuth'), 'unlocked'); assert.ok(!w.document.body.classList.contains('sp-locked'));
   const all = JSON.stringify(dump(w)) + JSON.stringify(w.SP_AUTH._state()) + w.document.documentElement.outerHTML.replace(/value="[^"]*"/g, '');
@@ -49,20 +57,26 @@ test('login errors are generic, offline is explained, and brute-force triggers a
   const s = createServer(); s.addUser('a@x.org', PW, {approved: true});
   const {window: w} = boot(s); await wait(400);
   s.offline = true; await fillLogin(w, 'a@x.org', PW); assert.match($(w, '#spErr').textContent, /No internet/); s.offline = false;
-  for (let i = 0; i < 5; i++) await fillLogin(w, i % 2 ? 'a@x.org' : 'nobody@x.org', 'bad-password-' + i);
-  assert.match($(w, '#spErr').textContent, /Invalid email or password/, 'same message for unknown user and wrong password');
+  for (let i = 0; i < 5; i++) await fillLogin(w, 'a@x.org', 'bad-code-' + i);
+  assert.match($(w, '#spErr').textContent, /Invalid or expired code/, 'generic response for invalid code');
   await fillLogin(w, 'a@x.org', PW); assert.match($(w, '#spErr').textContent, /Too many attempts/); assert.ok($(w, '#spAuth'));
 });
-test('registration: unapproved students cannot submit; approval unlocks sending; data reaches the server', async () => {
+test('student self-registration uses OTP, stays pending, and approved accounts can sync progress', async () => {
   const s = createServer(); const {window: w} = boot(s); await wait(400);
   $(w, '#spSwitch').click(); await wait(10);
-  $(w, '#spName').value = 'Ben Student'; $(w, '#spEmail').value = 'ben@school.org'; $(w, '#spPw').value = PW;
-  $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true})); await wait(250);
-  const u = s.users.get('ben@school.org'); assert.ok(u); assert.equal(u.role, 'student'); assert.equal(u.approved, false);
-  assert.ok(!$(w, '#spAuth'));
-  assert.match($(w, '#spChip').textContent, /Awaiting approval/);
-  const r = await w.SP_AUTH.syncNow(true); assert.ok(r.pending); assert.equal(s.subs.length, 0);
+  $(w, '#spName').value = 'Ben Student'; $(w, '#spEmail').value = 'ben@school.org';
+  $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true})); await wait(120);
+  assert.ok($(w, '#spCode'), 'registration sends a one-time code');
+  $(w, '#spCode').value = '482913';
+  $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true})); await wait(220);
+  const u = s.users.get('ben@school.org');
+  assert.ok(u); assert.equal(u.role, 'student'); assert.equal(u.approved, false); assert.equal(u.full_name, 'Ben Student');
+  assert.ok($(w, '#spAuth'), 'registration does not keep the unapproved user signed in');
+  assert.match($(w, '#spErr').textContent, /administrator must approve/i);
+  assert.equal(dump(w)['sp-auth-v1'], undefined);
   u.approved = true;
+  await fillLogin(w, 'ben@school.org', PW);
+  assert.ok(!$(w, '#spAuth'), 'approved student can sign in with OTP');
   w.eval('S.practiceActivity={"2026-10-10":{answers:10,correct:7}};S.writingLog=[{t:1,level:"A1",title:"x",score:80,words:30,text:"Hallo"}];STORE.save()');
   await w.SP_AUTH.syncNow(true);
   assert.equal(s.subs.length, 1); assert.equal(s.subs[0].student_id, u.id);
@@ -125,6 +139,25 @@ test('admin console: lists students, escapes hostile text, reviews, feedback rea
   assert.equal(sw.window.SP_AUTH._state().sync.feedback[0].note, 'Good progress, practise Perfekt.');
   assert.equal(s.subs[0].student_seen, true, 'feedback acknowledged');
 });
+
+test('administrator can promote an approved student to teacher and demote them again', async () => {
+  const s = createServer();
+  s.addUser('admin@school.org', PW, {role: 'admin', approved: true, name: 'Admin'});
+  const student = s.addUser('to-promote@school.org', PW, {role: 'student', approved: true, name: 'Promote Me'});
+  const {window: w, errors} = boot(s); w.confirm = () => true;
+  await wait(400); await fillLogin(w, 'admin@school.org', PW, 'admin');
+  await hash(w, '#/admin');
+  const open = [...$(w, '#view').querySelectorAll('[data-open]')].find(b => b.dataset.open === student.id);
+  assert.ok(open, 'admin can open the student record'); open.click(); await wait(180);
+  assert.match($(w, '#view').textContent, /Promote to teacher/);
+  $(w, '#admRoleBtn').click(); await wait(220);
+  assert.equal(student.role, 'teacher'); assert.equal(student.approved, true);
+  assert.match($(w, '#view').textContent, /Return to student/);
+  $(w, '#admRoleBtn').click(); await wait(220);
+  assert.equal(student.role, 'student'); assert.equal(student.approved, true);
+  assert.deepEqual(real(errors), []);
+});
+
 test('a student cannot use the admin screen or the admin API', async () => {
   const s = createServer(); const stu = s.addUser('f@x.org', PW, {approved: true}); s.addUser('other@x.org', PW, {approved: true, name: 'Other'});
   const {window: w} = boot(s); await wait(400); await fillLogin(w, 'f@x.org', PW);
@@ -158,7 +191,7 @@ test('emailed code: unknown emails look identical, students are refused, codes a
   let page1 = boot(s); await wait(400);
   await adminCodeFlow(page1.window, 'nobody@school.org');
   const unknownMsg = $(page1.window, '#spErr').textContent;
-  assert.match(unknownMsg, /If this address belongs to an administrator/); assert.ok($(page1.window, '#spCode'), 'same screen for unknown emails');
+  assert.match(unknownMsg, /If this email is eligible/); assert.ok($(page1.window, '#spCode'), 'same screen for unknown emails');
   const page2 = boot(s); await wait(400);
   await adminCodeFlow(page2.window, 'teacher@school.org');
   assert.equal($(page2.window, '#spErr').textContent, unknownMsg, 'identical message for a real administrator');
@@ -177,16 +210,27 @@ test('emailed code: unknown emails look identical, students are refused, codes a
   const replay = s.handle('POST', SB + '/auth/v1/verify', {apikey: 'k'}, {type: 'email', email: 'teacher@school.org', token: '482913'});
   assert.equal(replay.status, 403, 'the same code cannot be used twice');
 });
-test('admin can still choose the password method', async () => {
+test('admin sign-in is OTP-only and cannot create users', async () => {
   const s = createServer(); s.addUser('teacher@school.org', PW, {role: 'admin', approved: true});
-  const {window: w} = boot(s); await wait(400); $(w, '[data-who=admin]').click(); await wait(10); $(w, '#spMethod').click(); await wait(10);
-  assert.ok($(w, '#spPw')); await fillLogin(w, 'teacher@school.org', PW, undefined); assert.ok(!$(w, '#spAuth'));
+  const {window: w} = boot(s); await wait(400);
+  assert.equal($(w, '#spPw'), null);
+  $(w, '[data-who=admin]').click(); await wait(10);
+  assert.equal($(w, '#spMethod'), null); assert.equal($(w, '#spSwitch'), null);
+  $(w, '#spEmail').value = 'new@school.org';
+  $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true})); await wait(150);
+  assert.equal(s.users.has('new@school.org'), false, 'admin tab cannot self-register');
+  assert.ok($(w, '#spCode'));
+  assert.ok(!s.log.some(x => x.includes('/auth/v1/token')), 'app never sends password grant requests');
 });
-test('an unconfirmed email gets a clear message instead of "invalid password"', async () => {
-  const s = createServer(); s.addUser('u@x.org', PW, {approved: true}).unconfirmed = true;
-  const {window: w} = boot(s); await wait(400); await fillLogin(w, 'u@x.org', PW);
-  assert.match($(w, '#spErr').textContent, /not confirmed/); assert.ok($(w, '#spAuth'));
-  await fillLogin(w, 'u@x.org', 'wrong-password-1'); assert.match($(w, '#spErr').textContent, /Invalid email or password/, 'wrong password stays generic');
+
+test('unapproved accounts stay locked until approval', async () => {
+  const s = createServer(); s.addUser('u@x.org', PW, {approved: false});
+  const pending = boot(s); await wait(400); await fillLogin(pending.window, 'u@x.org', PW);
+  assert.match($(pending.window, '#spErr').textContent, /waiting for administrator approval/i);
+  assert.ok($(pending.window, '#spAuth')); assert.equal(dump(pending.window)['sp-auth-v1'], undefined);
+  s.users.get('u@x.org').approved = true;
+  const approved = boot(s); await wait(400); await fillLogin(approved.window, 'u@x.org', PW);
+  assert.ok(!$(approved.window, '#spAuth'), 'approved account can enter with a fresh OTP');
 });
 test('admin tab with a student account is refused and leaves no session behind', async () => {
   const s = createServer(); s.addUser('g@x.org', PW, {approved: true});

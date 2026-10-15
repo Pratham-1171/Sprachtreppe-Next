@@ -351,7 +351,7 @@
         }
         if (who === 'admin' && !['teacher', 'admin'].includes(profile.role)) {
           await signOut(false);
-          setErr('This is not an approved teacher/admin account. Ask an administrator to approve or promote it.');
+          setErr('This account is not an administrator or approved teacher account. Ask an administrator to approve or promote it.');
           btn.disabled = false; return;
         }
         if (who === 'student' && profile.role !== 'student') {
@@ -364,7 +364,7 @@
       } catch (e) {
         if (!e.offline) { failedLogins++; if (failedLogins >= 5) { cooldownUntil = Date.now() + 30000; failedLogins = 0; } }
         if (auth && auth.access_token) await signOut(false);
-        setErr(e.offline ? 'No internet connection. Sign-in needs internet.' : e.status === 429 ? 'Too many attempts — try again later.' : e.status === 400 && /token|otp|code/i.test(e.message || '') ? 'Invalid or expired code.' : (e.message && /student registration is unavailable/i.test(e.message)) ? 'This account cannot use registration. Try Student → Sign in.' : 'Could not complete sign-in. Check the code, approval status, and try again.');
+        setErr(e.offline ? 'No internet connection. Sign-in needs internet.' : e.status === 429 ? 'Too many attempts — try again later.' : [400, 403].includes(e.status) && /token|otp|code/i.test(e.message || '') ? 'Invalid or expired code.' : (e.message && /student registration is unavailable/i.test(e.message)) ? 'This account cannot use registration. Try Student → Sign in.' : 'Could not complete sign-in. Check the code, approval status, and try again.');
         btn.disabled = false;
       }
     };
