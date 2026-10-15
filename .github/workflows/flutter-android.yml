@@ -38,6 +38,91 @@ jobs:
           if "android.permission.INTERNET" not in manifest.read_text():
               raise SystemExit("Android Internet permission is missing.")
           PY
+      - name: Configure persistent Android release signing when secrets are present
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          names = [
+              "ANDROID_KEYSTORE_BASE64",
+              "ANDROID_KEYSTORE_PASSWORD",
+              "ANDROID_KEY_ALIAS",
+              "ANDROID_KEY_PASSWORD",
+          ]
+          values = {name: os.environ.get(name, "") for name in names}
+          supplied = [bool(value) for value in values.values()]
+          if not any(supplied):
+              print("::warning::No persistent signing key configured. This APK uses the temporary CI debug certificate and may not update an APK from another run.")
+              raise SystemExit(0)
+          if not all(supplied):
+              raise SystemExit("Configure all four Android signing secrets, or leave all four empty.")
+
+          module = Path("android/app")
+          keystore = module / "sprachtreppe-release.jks"
+          try:
+              decoded = base64.b64decode(values["ANDROID_KEYSTORE_BASE64"], validate=True)
+          except Exception as exc:
+              raise SystemExit("ANDROID_KEYSTORE_BASE64 is not valid base64.") from exc
+          if len(decoded) < 1024:
+              raise SystemExit("The Android keystore secret decoded to an unexpectedly small file.")
+          keystore.write_bytes(decoded)
+
+          Path("android/key.properties").write_text(
+              "storePassword=" + values["ANDROID_KEYSTORE_PASSWORD"] + "\n"
+              "keyPassword=" + values["ANDROID_KEY_PASSWORD"] + "\n"
+              "keyAlias=" + values["ANDROID_KEY_ALIAS"] + "\n"
+              "storeFile=sprachtreppe-release.jks\n",
+              encoding="utf-8",
+          )
+
+          gradle = module / "build.gradle.kts"
+          source = gradle.read_text(encoding="utf-8")
+          if "val keystorePropertiesFile" not in source:
+              needle = "android {"
+              if needle not in source:
+                  raise SystemExit("Could not locate the Android Gradle configuration block.")
+              config = (
+                  "val keystoreProperties = java.util.Properties()\n"
+                  'val keystorePropertiesFile = rootProject.file("key.properties")\n'
+                  "if (keystorePropertiesFile.exists()) {\n"
+                  "    keystoreProperties.load(keystorePropertiesFile.inputStream())\n"
+                  "}\n\n"
+              )
+              source = source.replace(needle, config + needle, 1)
+          if 'create("release")' not in source:
+              needle = "  buildTypes {"
+              signing = (
+                  "  signingConfigs {\n"
+                  '    create("release") {\n'
+                  "      if (keystorePropertiesFile.exists()) {\n"
+                  '        keyAlias = keystoreProperties["keyAlias"] as String\n'
+                  '        keyPassword = keystoreProperties["keyPassword"] as String\n'
+                  '        storeFile = file(keystoreProperties["storeFile"] as String)\n'
+                  '        storePassword = keystoreProperties["storePassword"] as String\n'
+                  "      }\n"
+                  "    }\n"
+                  "  }\n"
+              )
+              if needle not in source:
+                  raise SystemExit("Could not locate Android release buildTypes.")
+              source = source.replace(needle, signing + needle, 1)
+          debug_signing = 'signingConfig = signingConfigs.getByName("debug")'
+          stable_signing = 'signingConfig = if (keystorePropertiesFile.exists()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")'
+          if debug_signing not in source:
+              raise SystemExit("Flutter's generated release signing line changed; update the signing patch before building.")
+          source = source.replace(debug_signing, stable_signing, 1)
+          gradle.write_text(source, encoding="utf-8")
+          print("Persistent release signing configured; keystore material stays in this temporary runner.")
+          PY
       - name: Remove generated placeholder test
         run: rm -f test/widget_test.dart
       - name: Prepare legacy vocabulary asset
