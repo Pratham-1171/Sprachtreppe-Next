@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/app_user.dart';
 import '../services/dashboard_service.dart';
 import '../services/offline_sync_service.dart';
+import '../services/learning_state_sync_service.dart';
 import '../services/progress_service.dart';
 import 'notification_center_page.dart';
 
@@ -19,6 +20,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   late final DashboardService _dashboardService;
   late Future<DashboardData> _future;
   late Future<ProgressStats> _progressFuture;
+  late Future<Map<String, dynamic>> _learningFuture;
   late Future<DateTime?> _lastSyncFuture;
   late final OfflineSyncService _syncService;
 
@@ -32,8 +34,28 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
 
   void _load() {
     _future = _dashboardService.load(widget.user.id);
-    _progressFuture = ProgressService(widget.user.id).loadStats();
+    _learningFuture = _loadSyncedLearningState();
+    _progressFuture = _loadSyncedStudyStats();
     _lastSyncFuture = _syncService.loadLastSyncAt();
+  }
+
+  Future<Map<String, dynamic>> _loadSyncedLearningState() async {
+    final sync = LearningStateSyncService(Supabase.instance.client, widget.user.id);
+    try {
+      await sync.sync();
+    } catch (_) {
+      // Render cached server progress when offline; failed sync keeps local work queued.
+    }
+    return sync.loadAggregateState();
+  }
+
+  Future<ProgressStats> _loadSyncedStudyStats() async {
+    try {
+      await LearningStateSyncService(Supabase.instance.client, widget.user.id).sync();
+    } catch (_) {
+      // ProgressService still reports this device's locally saved sessions.
+    }
+    return ProgressService(widget.user.id).loadStats();
   }
 
   Future<void> _openSyncCenter() async {
@@ -52,7 +74,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
 
   Future<void> _refresh() async {
     setState(_load);
-    await Future.wait<Object>([_future, _progressFuture]);
+    await Future.wait<Object>([_future, _progressFuture, _learningFuture]);
   }
 
   @override
@@ -91,6 +113,17 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                   final stats = progressSnapshot.data;
                   if (stats == null) return const SizedBox.shrink();
                   return _StudyProgressCard(stats: stats);
+                },
+              ),
+              const SizedBox(height: 10),
+              FutureBuilder<Map<String, dynamic>>(
+                future: _learningFuture,
+                builder: (context, learningSnapshot) {
+                  if (learningSnapshot.connectionState == ConnectionState.waiting &&
+                      !learningSnapshot.hasData) {
+                    return const SizedBox.shrink();
+                  }
+                  return _SyncedLearningCard(state: learningSnapshot.data ?? <String, dynamic>{});
                 },
               ),
               const SizedBox(height: 22),
