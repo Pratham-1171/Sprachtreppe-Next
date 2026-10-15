@@ -90,6 +90,42 @@ void main() {
     });
   });
 
+  group('OfflineSyncService.assignmentProgressRpcParams', () {
+    test('maps queued local progress to the canonical server RPC parameters', () {
+      expect(
+        OfflineSyncService.assignmentProgressRpcParams(
+          '17',
+          const <String, Object>{'done': 8, 'ok': 5},
+        ),
+        {'p_assignment': 17, 'p_done': 8, 'p_correct': 5},
+      );
+    });
+
+    test('accepts the alternate correct field and rejects invalid snapshots', () {
+      expect(
+        OfflineSyncService.assignmentProgressRpcParams(
+          '42',
+          const <String, Object>{'done': 3, 'correct': 2},
+        ),
+        {'p_assignment': 42, 'p_done': 3, 'p_correct': 2},
+      );
+      expect(
+        () => OfflineSyncService.assignmentProgressRpcParams(
+          '42',
+          const <String, Object>{'done': 2, 'ok': 3},
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => OfflineSyncService.assignmentProgressRpcParams(
+          'not-an-id',
+          const <String, Object>{'done': 2, 'ok': 1},
+        ),
+        throwsFormatException,
+      );
+    });
+  });
+
   group('OfflineSyncService.isSyncDue', () {
     final now = DateTime.utc(2026, 10, 14, 10);
 
