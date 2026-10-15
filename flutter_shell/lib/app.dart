@@ -17,6 +17,7 @@ import 'pages/admin_pages.dart';
 import 'pages/notification_center_page.dart';
 import 'services/notification_service.dart';
 import 'services/auth_service.dart';
+import 'services/learning_state_sync_service.dart';
 import 'theme/app_theme.dart';
 
 class SprachtreppeApp extends StatefulWidget {
@@ -131,7 +132,7 @@ class RoleShell extends StatefulWidget {
   State<RoleShell> createState() => _RoleShellState();
 }
 
-class _RoleShellState extends State<RoleShell> {
+class _RoleShellState extends State<RoleShell> with WidgetsBindingObserver {
   int index = 0;
   late NotificationService _notificationService;
   late Future<List<AppNotification>> _notificationFuture;
@@ -139,8 +140,22 @@ class _RoleShellState extends State<RoleShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _notificationService = NotificationService(Supabase.instance.client, widget.user.id);
     _loadNotifications();
+    _syncPersonalLearningState();
+  }
+
+  void _syncPersonalLearningState() {
+    if (widget.user.role != AppRole.student) return;
+    LearningStateSyncService(Supabase.instance.client, widget.user.id).sync().catchError((Object _) {
+      // Keep offline work local and retry when the app next starts or resumes.
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _syncPersonalLearningState();
   }
 
   @override
@@ -149,11 +164,18 @@ class _RoleShellState extends State<RoleShell> {
     if (oldWidget.user.id != widget.user.id) {
       _notificationService = NotificationService(Supabase.instance.client, widget.user.id);
       _loadNotifications();
+      _syncPersonalLearningState();
     }
   }
 
   void _loadNotifications() {
     _notificationFuture = _notificationService.load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _openNotifications() async {
