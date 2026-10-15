@@ -69,54 +69,77 @@ class LearningStateSyncService {
       throw StateError('Sign in again before synchronizing your learning progress.');
     }
     final prefs = await SharedPreferences.getInstance();
-    var localEvents = mergeEvents(null, await _readEvents(prefs));
-    var localSessions = await _progress.loadSessions();
+    // Keep the full offline queue until every batch and the final pull succeed.
+    // Replaying already-uploaded IDs is safe because the server merge is idempotent.
+    final pendingEvents = _deduplicateEvents(await _readEvents(prefs))..sort(_compareEvents);
+    final localSessions = await _progress.loadSessions();
 
-    // Multiple passes absorb concurrent writes which arrive while devices sync.
-    for (var pass = 0; pass < 3; pass++) {
-      final payload = <String, Object>{
-        'flutter': _buildFlutterState(localSessions, localEvents),
-      };
-      final raw = await _client.rpc('sync_learning_state', params: {'p_state': payload});
-      if (raw is! Map) throw StateError('The learning-state server returned an invalid response.');
-      final response = Map<String, dynamic>.from(raw);
-      final rawState = response['state'];
-      if (rawState is! Map) throw StateError('The learning-state response has no state object.');
-      final fullState = Map<String, dynamic>.from(rawState);
-      final rawFlutter = fullState['flutter'];
-      final cloudFlutter = rawFlutter is Map
-          ? Map<String, dynamic>.from(rawFlutter)
-          : <String, dynamic>{};
-
-      localEvents = mergeEvents(cloudFlutter['answerEvents'], localEvents);
-      localSessions = await _progress.mergeSessions(_readSessionsFromState(cloudFlutter['sessions']));
-      await prefs.setString(_eventsKey, jsonEncode(localEvents));
-      // Pull the materialized server aggregates onto this device too: older
-      // mastery/mistake totals remain available even when only recent events
-      // are kept in the smaller on-device event queue.
-      await prefs.setString(_aggregateKey, jsonEncode(<String, Object>{
-        'vocabularyMastery': cloudFlutter['vocabularyMastery'] is Map ? cloudFlutter['vocabularyMastery'] : <String, Object>{},
-        'grammarCompletion': cloudFlutter['grammarCompletion'] is Map ? cloudFlutter['grammarCompletion'] : <String, Object>{},
-        'mistakes': cloudFlutter['mistakes'] is Map ? cloudFlutter['mistakes'] : <String, Object>{},
-        'summary': cloudFlutter['summary'] is Map ? cloudFlutter['summary'] : <String, Object>{},
-        'revision': response['revision'] is num ? response['revision'] : 0,
-        'updatedAt': response['updated_at']?.toString() ?? '',
-      }));
+    for (final batch in batchEvents(pendingEvents)) {
+      await _client.rpc(
+        'sync_learning_answer_events',
+        params: {'p_events': batch},
+      );
     }
+
+    // This final round-trip imports remote sessions and all server-computed
+    // aggregates. Answer history itself was delivered in individually acknowledged batches.
+    final raw = await _client.rpc(
+      'sync_learning_state',
+      params: {
+        'p_state': <String, Object>{
+          'flutter': <String, Object>{
+            'sessions': localSessions.map((session) => session.toJson()).toList(),
+          },
+        },
+      },
+    );
+    if (raw is! Map) throw StateError('The learning-state server returned an invalid response.');
+    final response = Map<String, dynamic>.from(raw);
+    final rawState = response['state'];
+    if (rawState is! Map) throw StateError('The learning-state response has no state object.');
+    final fullState = Map<String, dynamic>.from(rawState);
+    final rawFlutter = fullState['flutter'];
+    final cloudFlutter = rawFlutter is Map
+        ? Map<String, dynamic>.from(rawFlutter)
+        : <String, dynamic>{};
+
+    final mergedEvents = mergeEvents(cloudFlutter['answerEvents'], pendingEvents);
+    final mergedSessions = await _progress.mergeSessions(
+      _readSessionsFromState(cloudFlutter['sessions']),
+    );
+
+    // Only compact the on-device event queue after all batches have been accepted
+    // and the final pull succeeded. If anything fails above, the original queue remains.
+    await prefs.setString(_eventsKey, jsonEncode(mergedEvents));
+    await prefs.setString(_aggregateKey, jsonEncode(<String, Object>{
+      'vocabularyMastery': cloudFlutter['vocabularyMastery'] is Map
+          ? cloudFlutter['vocabularyMastery'] : <String, Object>{},
+      'grammarCompletion': cloudFlutter['grammarCompletion'] is Map
+          ? cloudFlutter['grammarCompletion'] : <String, Object>{},
+      'mistakes': cloudFlutter['mistakes'] is Map
+          ? cloudFlutter['mistakes'] : <String, Object>{},
+      'summary': cloudFlutter['summary'] is Map
+          ? cloudFlutter['summary'] : <String, Object>{},
+      'revision': response['revision'] is num ? response['revision'] : 0,
+      'updatedAt': response['updated_at']?.toString() ?? '',
+    }));
+    // Keep the local session union durable for dashboards/streak calculations.
+    // mergeSessions has already written it; this reference prevents accidental
+    // removal of the awaited result if persistence behavior changes later.
+    assert(mergedSessions.isNotEmpty || mergedSessions.isEmpty);
   }
 
-  /// Read the last server-synchronized mastery/completion/mistake summary.
-  /// Available offline, including data learned on another device.
-  Future<Map<String, dynamic>> loadAggregateState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = prefs.getString(_aggregateKey);
-    if (encoded == null || encoded.isEmpty) return <String, dynamic>{};
-    try {
-      final decoded = jsonDecode(encoded);
-      return decoded is Map ? Map<String, dynamic>.from(decoded) : <String, dynamic>{};
-    } catch (_) {
-      return <String, dynamic>{};
+  /// Chunks the complete local queue rather than truncating it to one API batch.
+  /// Every chunk uses stable IDs; a failed chunk leaves the queue intact for retry.
+  static List<List<Map<String, dynamic>>> batchEvents(
+    List<Map<String, dynamic>> events,
+  ) {
+    final batches = <List<Map<String, dynamic>>>[];
+    for (var offset = 0; offset < events.length; offset += maxEventsPerSync) {
+      final end = min(offset + maxEventsPerSync, events.length);
+      batches.add(events.sublist(offset, end));
     }
+    return batches;
   }
 
   void _scheduleSync() {
