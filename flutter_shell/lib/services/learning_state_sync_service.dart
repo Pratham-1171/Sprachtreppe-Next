@@ -133,7 +133,7 @@ class LearningStateSyncService {
     final rawServerEvents = response['answer_events'];
     await _progress.mergeSessions(<StudySession>[
       ..._readSessionsFromState(cloudFlutter['sessions']),
-      ..._readWebSessionsFromState(fullState['sessionHistory']),
+      ...readWebSessionsFromState(fullState['sessionHistory']),
     ]);
 
     // Serialize local cache writes with recordAnswer(). Previously acknowledged
@@ -144,6 +144,7 @@ class LearningStateSyncService {
       final recentServerEvents = mergeEvents(rawServerEvents, currentPending);
       final savedRecent = await prefs.setString(_recentEventsKey, jsonEncode(recentServerEvents));
       if (!savedRecent) throw StateError('Could not cache the latest synced answer history.');
+      final rawCourseState = fullState;
       await prefs.setString(_aggregateKey, jsonEncode(<String, Object>{
         'vocabularyMastery': cloudFlutter['vocabularyMastery'] is Map
             ? cloudFlutter['vocabularyMastery'] : <String, Object>{},
@@ -153,6 +154,21 @@ class LearningStateSyncService {
             ? cloudFlutter['mistakes'] : <String, Object>{},
         'summary': cloudFlutter['summary'] is Map
             ? cloudFlutter['summary'] : <String, Object>{},
+        // Preserve the actual legacy-course state too. Flutter cannot execute the
+        // browser engine, but it can display/consume the exact remote mastery,
+        // completion, streak, activity and achievement state without dropping it.
+        'courseState': <String, Object>{
+          'known': rawCourseState['known'] is Map ? rawCourseState['known'] as Map : <String, Object>{},
+          'mastery': rawCourseState['mastery'] is Map ? rawCourseState['mastery'] as Map : <String, Object>{},
+          'grammarDone': rawCourseState['grammarDone'] is Map ? rawCourseState['grammarDone'] as Map : <String, Object>{},
+          'quizStats': rawCourseState['quizStats'] is Map ? rawCourseState['quizStats'] as Map : <String, Object>{},
+          'mistakes': rawCourseState['mistakes'] is Map ? rawCourseState['mistakes'] as Map : <String, Object>{},
+          'streak': rawCourseState['streak'] is Map ? rawCourseState['streak'] as Map : <String, Object>{},
+          'studyTime': rawCourseState['studyTime'] is Map ? rawCourseState['studyTime'] as Map : <String, Object>{},
+          'practiceActivity': rawCourseState['practiceActivity'] is Map ? rawCourseState['practiceActivity'] as Map : <String, Object>{},
+          'achievements': rawCourseState['achievements'] is Map ? rawCourseState['achievements'] as Map : <String, Object>{},
+          'grammarCompleted': rawCourseState['grammarCompleted'] is Map ? rawCourseState['grammarCompleted'] as Map : <String, Object>{},
+        },
         'revision': response['revision'] is num ? response['revision'] : 0,
         'updatedAt': response['updated_at']?.toString() ?? '',
       }));
@@ -308,7 +324,7 @@ class LearningStateSyncService {
   }
 
   /// Imports browser-course sessions into native history, using stable IDs.
-  static List<StudySession> _readWebSessionsFromState(dynamic value) {
+  static List<StudySession> readWebSessionsFromState(dynamic value) {
     if (value is! List) return <StudySession>[];
     final sessions = <StudySession>[];
     for (final item in value.whereType<Map>()) {
