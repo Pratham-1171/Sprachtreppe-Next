@@ -104,7 +104,7 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         Text('Your profile', style: theme.textTheme.headlineMedium),
         const SizedBox(height: 5),
-        Text('Account details and learning data stored on this device.', style: theme.textTheme.bodyLarge),
+        Text('Account details and learning progress sync across your devices when online.', style: theme.textTheme.bodyLarge),
         const SizedBox(height: 18),
         Card(
           child: Padding(
