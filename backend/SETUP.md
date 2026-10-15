@@ -168,7 +168,7 @@ The anon/publishable key is expected to be present in a client app; RLS and serv
 
 ## Migration workflow safety
 
-The repository workflow `.github/workflows/supabase-next-migrate.yml` is manual-only and maps the twelve known Next migration ledger versions explicitly. It does **not** replay historical `001`–`012` SQL, and it does not delete/reinitialize the entire Supabase folder. To run that workflow, configure repository secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD`. New schema changes must be added as a new, immutable migration and explicitly mapped in the workflow; do not edit an already-applied migration expecting it to rerun.
+The repository workflow `.github/workflows/supabase-next-migrate.yml` is manual-only and maps the thirteen known Next migration ledger versions explicitly. It does **not** replay historical `001`–`012` SQL, and it does not delete/reinitialize the entire Supabase folder. To run that workflow, configure repository secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD`. New schema changes must be added as a new, immutable migration and explicitly mapped in the workflow; do not edit an already-applied migration expecting it to rerun.
 
 ## 11. Personal progress across devices
 
