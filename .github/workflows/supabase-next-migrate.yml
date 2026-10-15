@@ -67,7 +67,8 @@ jobs:
           cp backend/migrations/022_merge_streak_by_latest_study_date.sql supabase/migrations/20261015104251_merge_current_streak_by_latest_study_date.sql
           cp backend/migrations/023_preserve_latest_streak_study_date.sql supabase/migrations/20261015104430_preserve_latest_streak_study_date.sql
           cp backend/migrations/024_dedupe_learning_sessions_and_recompute_streak.sql supabase/migrations/20261015111418_dedupe_learning_sessions_and_recompute_streak.sql
-          test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 14
+          cp backend/migrations/025_normalize_first_learning_snapshot.sql supabase/migrations/20261015111721_normalize_first_learning_snapshot.sql
+          test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 15
 
       - name: Link to sprachtreppe-next
         env:
