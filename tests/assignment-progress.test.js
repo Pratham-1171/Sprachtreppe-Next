@@ -17,7 +17,6 @@ function boot(server) {
 const $ = (w, selector) => w.document.querySelector(selector);
 async function signIn(w, email) {
   await wait(350);
-  $('#spEmail' in w.document ? w : w, '#spEmail');
   $(w, '#spEmail').value = email;
   $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true}));
   await wait(120);
@@ -41,7 +40,7 @@ test('web assignment progress syncs online and retries an offline answer', async
   assert.equal(w.SP_LMS.isStaff(), false);
   w.location.hash = '#/assignments';
   await wait(350);
-  assert.match($('#view', w.document)?.textContent || '', /A2 grammar practice/);
+  assert.match($(w, '#view')?.textContent || '', /A2 grammar practice/);
 
   const listStart = [...w.document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Start practice');
   assert.ok(listStart, 'assignment card should offer the task details');
