@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+String _studyDateKey(DateTime value) =>
+    '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
 class StudySession {
   const StudySession({
     required this.completedAt,
@@ -11,9 +14,11 @@ class StudySession {
     required this.correct,
     required this.total,
     this.id = '',
+    this.studyDate = '',
   });
 
   final String id;
+  final String studyDate;
   final DateTime completedAt;
   final String mode;
   final String level;
@@ -27,6 +32,7 @@ class StudySession {
   Map<String, Object> toJson() => {
         'id': stableId,
         'completedAt': completedAt.toIso8601String(),
+        'studyDate': studyDate.isNotEmpty ? studyDate : _studyDateKey(completedAt.toLocal()),
         'mode': mode,
         'level': level,
         'correct': correct,
@@ -40,10 +46,12 @@ class StudySession {
     final level = json['level'] as String? ?? 'All';
     final correct = (json['correct'] as num?)?.toInt() ?? 0;
     final total = (json['total'] as num?)?.toInt() ?? 0;
+    final rawStudyDate = json['studyDate']?.toString() ?? '';
     return StudySession(
       id: (json['id'] as String?) ??
           'legacy:${completedAt.toUtc().toIso8601String()}:${mode.toLowerCase()}:$level:$correct:$total',
       completedAt: completedAt,
+      studyDate: rawStudyDate.isNotEmpty ? rawStudyDate : _studyDateKey(completedAt.toLocal()),
       mode: mode,
       level: level,
       correct: correct,
@@ -90,6 +98,10 @@ class ProgressStats {
     final currentTime = (now ?? DateTime.now()).toLocal();
     final today = DateTime.utc(currentTime.year, currentTime.month, currentTime.day);
     final studyDays = valid.map((session) {
+      final parsedDay = DateTime.tryParse(session.studyDate);
+      if (parsedDay != null) {
+        return DateTime.utc(parsedDay.year, parsedDay.month, parsedDay.day);
+      }
       final local = session.completedAt.toLocal();
       return DateTime.utc(local.year, local.month, local.day);
     }).toSet().toList()
@@ -122,11 +134,12 @@ class ProgressStats {
       previousDay = day;
     }
 
+    final todayKey = _studyDateKey(currentTime);
     final sessionsToday = valid.where((session) {
-      final date = session.completedAt.toLocal();
-      return date.year == currentTime.year &&
-          date.month == currentTime.month &&
-          date.day == currentTime.day;
+      final dateKey = session.studyDate.isNotEmpty
+          ? session.studyDate
+          : _studyDateKey(session.completedAt.toLocal());
+      return dateKey == todayKey;
     }).length;
 
     DateTime? lastStudiedAt;
@@ -187,11 +200,13 @@ class ProgressService {
     return _withSessionLock(() async {
       final preferences = await _resolvePreferences();
       final sessions = await _readSessions(preferences);
+      final sessionTime = completedAt ?? DateTime.now();
       sessions.insert(
         0,
         StudySession(
           id: 'session-${DateTime.now().microsecondsSinceEpoch}',
-          completedAt: completedAt ?? DateTime.now(),
+          completedAt: sessionTime,
+          studyDate: _studyDateKey(sessionTime.toLocal()),
           mode: mode,
           level: level,
           correct: correct.clamp(0, total).toInt(),
@@ -218,7 +233,23 @@ class ProgressService {
         all[session.stableId] = session;
       }
       for (final session in incoming) {
-        all.putIfAbsent(session.stableId, () => session);
+        final existing = all[session.stableId];
+        if (existing == null) {
+          all[session.stableId] = session;
+        } else {
+          final useIncomingTime = session.completedAt.isAfter(existing.completedAt);
+          final total = existing.total > session.total ? existing.total : session.total;
+          final correct = existing.correct > session.correct ? existing.correct : session.correct;
+          all[session.stableId] = StudySession(
+            id: session.stableId,
+            completedAt: useIncomingTime ? session.completedAt : existing.completedAt,
+            studyDate: useIncomingTime ? session.studyDate : existing.studyDate,
+            mode: existing.mode.isNotEmpty ? existing.mode : session.mode,
+            level: existing.level.isNotEmpty ? existing.level : session.level,
+            correct: correct.clamp(0, total).toInt(),
+            total: total,
+          );
+        }
       }
       final merged = all.values.toList()
         ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
