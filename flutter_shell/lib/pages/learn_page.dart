@@ -50,8 +50,8 @@ class _LearnPageState extends State<LearnPage> {
             index: _section,
             children: [
               const CoursePage(),
-              VocabularyPage(userId: userId),
-              GrammarPage(userId: userId),
+              VocabularyPage(userId: widget.userId),
+              GrammarPage(userId: widget.userId),
             ],
           ),
         ),
