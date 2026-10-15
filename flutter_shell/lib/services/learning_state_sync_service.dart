@@ -101,8 +101,15 @@ class LearningStateSyncService {
         ? Map<String, dynamic>.from(rawFlutter)
         : <String, dynamic>{};
 
-    final recentServerEvents = mergeEvents(cloudFlutter['answerEvents'], <Map<String, dynamic>>[]);
-    final serverEventIds = recentServerEvents.map((event) => event['id']?.toString() ?? '').toSet();
+    final serverEventIds = <String>{};
+    final rawServerEvents = cloudFlutter['answerEvents'];
+    if (rawServerEvents is List) {
+      for (final item in rawServerEvents.whereType<Map>()) {
+        final id = item['id']?.toString() ?? '';
+        if (id.isNotEmpty) serverEventIds.add(id);
+      }
+    }
+    final recentServerEvents = mergeEvents(rawServerEvents, <Map<String, dynamic>>[]);
     await _progress.mergeSessions(_readSessionsFromState(cloudFlutter['sessions']));
 
     // Serialize the brief queue update with recordAnswer(). New answers created
