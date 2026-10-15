@@ -345,8 +345,14 @@ class LearningStateSyncService {
         if (dateValue.isEmpty || questions <= 0) continue;
         final parsed = DateTime.tryParse(dateValue);
         if (parsed == null) continue;
-        final stableId = row['id']?.toString();
-        if (stableId == null || stableId.isEmpty) continue;
+        final rawId = row['id']?.toString();
+        if (rawId == null || rawId.isEmpty) continue;
+        // Browser history prefixes native IDs for the course's own session list.
+        // Strip that alias when re-importing so native and browser views of the
+        // exact same session do not count it twice.
+        final stableId = rawId.startsWith('flutter-session:')
+            ? rawId.substring('flutter-session:'.length)
+            : rawId;
         sessions.add(StudySession(
           id: stableId,
           completedAt: parsed,
