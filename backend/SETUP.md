@@ -53,3 +53,10 @@ Optional invitation-code, attendance analytics, scheduled reminder queue and ema
 On a fresh environment, verify the classroom tables have RLS enabled and these RPCs exist: \`my_classroom()\`, \`my_students()\`, \`admin_students_overview()\`, \`create_class(text)\`, \`create_assignment(bigint,text,text,text,integer,timestamptz)\`, \`update_assignment_progress(bigint,integer,integer)\`, \`submit_progress(jsonb,text)\`.
 
 Test OTP registration/approval, teacher promotion, class creation, linking a teacher/student, publishing an assignment/announcement, syncing progress and reviewing a submission. A student must not be able to approve themselves, change roles, read another user's progress or mark another user's notification read.
+
+## Deployment ownership
+
+- The root GitHub Pages site is owned by the \`web-first\` branch and \`.github/workflows/deploy-web.yml\` on that branch.
+- The Android APK is owned by \`flutter-shell\` and \`.github/workflows/flutter-android.yml\`.
+- The Flutter branch's web workflow is manual-only for build/preview checks and must not automatically deploy over the root site.
+- Database migrations and schema docs are mirrored on both branches; they do not require running the legacy LMS migration chain.
