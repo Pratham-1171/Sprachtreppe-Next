@@ -37,13 +37,14 @@ class LearningStateSyncService {
     required String answer,
     required String expected,
     required bool correct,
+    String? entityId,
   }) async {
     final micros = DateTime.now().microsecondsSinceEpoch;
     final event = <String, Object>{
       'id': 'answer-$micros-${_random.nextInt(1 << 32).toRadixString(16)}',
       'type': 'answer',
       'entityType': mode.toLowerCase().contains('grammar') ? 'grammar' : 'vocabulary',
-      'entityId': _normaliseKey('$mode|$level|$topic|$prompt'),
+      'entityId': _normaliseKey(entityId ?? '$mode|$level|$topic|$prompt'),
       'timestamp': DateTime.now().toUtc().toIso8601String(),
       'mode': mode,
       'level': level,
