@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sprachtreppe_flutter/services/progress_service.dart';
@@ -44,6 +46,57 @@ void main() {
     expect(stats.currentStreak, 3);
     expect(stats.bestStreak, 3);
     expect(stats.sessionsToday, 1);
+  });
+
+
+  test('merges conflicting copies of the same session by ID without double counting', () async {
+    final preferences = await SharedPreferences.getInstance();
+    final service = ProgressService('student-session-merge', preferences: preferences);
+    await preferences.setStringList(
+      'sprachtreppe_progress_v1_student-session-merge',
+      <String>[
+        jsonEncode(<String, Object>{
+          'id': 'session-shared',
+          'completedAt': '2026-10-14T09:00:00.000',
+          'studyDate': '2026-10-14',
+          'mode': 'Grammar',
+          'level': 'A2',
+          'correct': 3,
+          'total': 5,
+        }),
+      ],
+    );
+
+    final merged = await service.mergeSessions(<StudySession>[
+      StudySession(
+        id: 'session-shared',
+        completedAt: DateTime(2026, 10, 14, 9),
+        studyDate: '2026-10-14',
+        mode: 'Grammar',
+        level: 'A2',
+        correct: 4,
+        total: 7,
+      ),
+      StudySession(
+        id: 'session-from-other-device',
+        completedAt: DateTime(2026, 10, 15, 9),
+        studyDate: '2026-10-15',
+        mode: 'Vocabulary',
+        level: 'A1',
+        correct: 2,
+        total: 3,
+      ),
+    ]);
+
+    expect(merged, hasLength(2));
+    final shared = merged.singleWhere((session) => session.stableId == 'session-shared');
+    expect(shared.total, 7);
+    expect(shared.correct, 4);
+    expect(shared.studyDate, '2026-10-14');
+    final stats = ProgressStats.fromSessions(merged, now: DateTime(2026, 10, 15, 12));
+    expect(stats.totalSessions, 2);
+    expect(stats.totalQuestions, 10);
+    expect(stats.correctAnswers, 6);
   });
 
   test('keeps study history separate for different students', () async {
