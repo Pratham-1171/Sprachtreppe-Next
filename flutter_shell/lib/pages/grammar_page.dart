@@ -502,7 +502,7 @@ class _InteractiveExerciseState extends State<_InteractiveExercise> {
                           level: widget.lesson.level,
                           correct: correct ? 1 : 0,
                           total: 1,
-                        ).catchError((Object _) {});
+                        ).then<void>((_) {}).catchError((Object _) {});
                       },
                   style: OutlinedButton.styleFrom(
                     alignment: Alignment.centerLeft,
