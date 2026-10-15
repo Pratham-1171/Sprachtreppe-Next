@@ -1,9 +1,21 @@
 // In-memory stand-in for the Supabase endpoints the app uses. It mirrors the RLS rules proven in sql.test.js.
 function createServer(opts) {
   opts = opts || {};
-  const S = {users: new Map(), tokens: new Map(), refresh: new Map(), subs: [], nextSub: 1, offline: false, autoConfirm: opts.autoConfirm !== false, log: [], idc: 1};
+  const S = {users: new Map(), tokens: new Map(), refresh: new Map(), subs: [], nextSub: 1, assignments: [], assignmentProgress: new Map(), nextAssignment: 1, offline: false, autoConfirm: opts.autoConfirm !== false, log: [], idc: 1};
   const uid = () => 'u' + (S.idc++).toString().padStart(4, '0') + '-0000-0000-0000-000000000000';
   S.addUser = (email, password, o) => { o = o || {}; const key = String(email).trim().toLowerCase(); const u = {id: uid(), email: key, password, full_name: o.name || '', role: o.role || 'student', approved: !!o.approved}; S.users.set(key, u); return u; };
+  S.addAssignment = options => {
+    options = options || {};
+    const id = Number(options.id) || S.nextAssignment++;
+    S.nextAssignment = Math.max(S.nextAssignment, id + 1);
+    const row = Object.assign({
+      id, class_id: null, title: 'German grammar practice', instructions: 'Complete the questions.',
+      kind: 'practice', skill: 'grammar', target_count: 5, due_at: null, created_by: null,
+      archived: false, created_at: new Date().toISOString()
+    }, options, {id});
+    S.assignments.push(row);
+    return row;
+  };
   const byId = id => [...S.users.values()].find(u => u.id === id);
   const session = u => {
     const a = 'at.' + Math.random().toString(36).slice(2), r = 'rt.' + Math.random().toString(36).slice(2);
@@ -78,6 +90,30 @@ function createServer(opts) {
       return R(200, {ok: true, server_time: new Date(S.now ? S.now() : Date.now()).toISOString(), duplicate: !!dup, feedback: fb});
     }
     if (p === '/rest/v1/rpc/ack_feedback') { S.subs.forEach(s => { if (s.student_id === me.id && body.p_ids.includes(s.id)) s.student_seen = true; }); return R(204, null); }
+    if (p === '/rest/v1/rpc/my_classroom') {
+      if (!me.approved) return R(403, {message: 'account not approved', code: '42501'});
+      const rows = S.assignments.filter(a => !a.archived && (a.class_id == null || isAdmin(me) || me.role === 'teacher')).map(a => {
+        const progress = S.assignmentProgress.get(me.id + ':' + a.id) || {done: 0, correct: 0};
+        return Object.assign({}, a, {done: progress.done, correct: progress.correct, completed_count: progress.done});
+      });
+      return R(200, {classes: [], assignments: rows, announcements: []});
+    }
+    if (p === '/rest/v1/rpc/update_assignment_progress') {
+      if (!me.approved || me.role !== 'student') return R(403, {message: 'forbidden', code: '42501'});
+      const id = Number(body.p_assignment), assignment = S.assignments.find(a => a.id === id && !a.archived);
+      if (!Number.isSafeInteger(id) || !assignment) return R(404, {message: 'assignment not found', code: 'P0002'});
+      if (assignment.class_id != null) return R(403, {message: 'not a class member', code: '42501'});
+      const done = Number(body.p_done), correct = Number(body.p_correct);
+      if (!Number.isInteger(done) || !Number.isInteger(correct) || done < 0 || done > assignment.target_count || correct < 0 || correct > done) {
+        return R(400, {message: 'invalid progress values', code: '22023'});
+      }
+      const key = me.id + ':' + id;
+      const old = S.assignmentProgress.get(key) || {done: 0, correct: 0};
+      const mergedDone = Math.max(old.done, done);
+      const mergedCorrect = Math.min(mergedDone, Math.max(old.correct, correct));
+      S.assignmentProgress.set(key, {assignment_id: id, student_id: me.id, done: mergedDone, correct: mergedCorrect});
+      return R(200, null);
+    }
     if (p === '/rest/v1/rpc/admin_overview') {
       if (!isAdmin(me)) return R(403, {message: 'forbidden', code: '42501'});
       return R(200, [...S.users.values()].map(r => { const ss = S.subs.filter(s => s.student_id === r.id).sort((a, b) => b.id - a.id); return {id: r.id, email: r.email, full_name: r.full_name, role: r.role, approved: r.approved, created_at: new Date().toISOString(), last_sync_at: ss[0] ? ss[0].created_at : null, submissions: ss.length, unreviewed: ss.filter(s => s.review_status === 'pending').length, last_summary: ss[0] ? ss[0].summary : null}; }));
