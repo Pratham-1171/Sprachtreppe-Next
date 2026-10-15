@@ -62,6 +62,10 @@ class _VocabularyPageState extends State<VocabularyPage> {
         final words = snapshot.data ?? const <VocabularyWord>[];
         final rawMastery = _learningState['vocabularyMastery'];
         final mastery = rawMastery is Map ? rawMastery : <dynamic, dynamic>{};
+        final rawCourseState = _learningState['courseState'];
+        final courseState = rawCourseState is Map ? rawCourseState : <dynamic, dynamic>{};
+        final rawCourseMastery = courseState['mastery'];
+        final courseMastery = rawCourseMastery is Map ? rawCourseMastery : <dynamic, dynamic>{};
         final topics = <String>{'All', ...words.map((word) => word.topic)}.toList()..sort();
         final filtered = words.where((word) {
           final levelMatch = _level == 'All' || word.level == _level;
@@ -134,7 +138,11 @@ class _VocabularyPageState extends State<VocabularyPage> {
                   Text('${filtered.length} matching words', style: theme.textTheme.labelLarge),
                   const SizedBox(height: 8),
                   ...filtered.map((word) {
-                    final rawProgress = mastery['vocabulary:${word.number}'];
+                    // Native answer events use the namespaced ID; the legacy
+                    // browser course uses v17-style keys for this same word.
+                    final rawProgress = mastery['vocabulary:${word.number}'] ??
+                        mastery['v${word.number}'] ??
+                        courseMastery['v${word.number}'];
                     final progress = rawProgress is Map
                         ? Map<String, dynamic>.from(rawProgress)
                         : null;
