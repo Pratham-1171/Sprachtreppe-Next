@@ -84,7 +84,7 @@ elif local:
 else:
     raise SystemExit('No backend configured. Set SUPABASE_URL and SUPABASE_ANON_KEY, or set ALLOW_LOCAL_MODE=1 for a practice-only build.')
 
-parts = [(root / 'course' / f).read_text(encoding='utf-8') for f in ['enhancements.js','content-expansion.js','german-core.js','exercises-v8.js','reading-writing-v8.js','engine-v8.js','password-recovery.js','auth-sync.js']]
+parts = [(root / 'course' / f).read_text(encoding='utf-8') for f in ['enhancements.js','content-expansion.js','german-core.js','exercises-v8.js','reading-writing-v8.js','engine-v8.js','auth-sync.js']]
 theme = (root / 'course/theme.css').read_text(encoding='utf-8')
 shim = (root / 'course/native-shim.js').read_text(encoding='utf-8')
 cfg_js = 'window.SP_CONFIG=' + json.dumps(config) + ';\n'

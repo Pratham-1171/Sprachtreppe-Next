@@ -92,21 +92,10 @@
     }
     localStorage.setItem(K_OWNER, uid); return false;      // first account on this device inherits existing local progress
   }
-  async function signIn(email, password) {
-    const r = await http('/auth/v1/token?grant_type=password', {method: 'POST', body: {email: String(email).trim(), password}});
-    auth = null; setSession(r.data);
-    await loadProfile();
-    if (!sync.uid || sync.uid !== auth.user.id) { sync = {uid: auth.user.id}; }
-    touchClock(true); ls.set(K_SYNC, sync);
-    return auth.profile;
-  }
-  async function signUp(email, password, name) {
-    const r = await http('/auth/v1/signup', {method: 'POST', body: {email: String(email).trim(), password, data: {full_name: String(name || '').slice(0, 80)}}});
-    return r.data;
-  }
-  async function signOut() {
+  async function signOut(returnToLogin = true) {
     try { if (auth && auth.access_token && online()) await http('/auth/v1/logout', {method: 'POST', token: auth.access_token, timeout: 5000}); } catch (e) {}
-    auth = null; ls.del(K_AUTH); stopServices(); showLogin();
+    auth = null; ls.del(K_AUTH); stopServices();
+    if (returnToLogin) showLogin();
   }
 
   /* ---------------- weekly clock ---------------- */
@@ -228,137 +217,162 @@
   const fmtMin = s => Math.round((s || 0) / 60) + ' min';
   const pctOf = (a, b) => b ? Math.round(100 * a / b) + '%' : '–';
 
-  /* ---------------- admin sign-in with an emailed one-time code ---------------- */
-  async function sendCode(email) {
-    // Keep Supabase's non-enumerating behavior for unknown email addresses.
-    // Surface rate limits, connectivity errors, and server/provider failures.
+  /* ---------------- passwordless email OTP authentication ---------------- */
+  async function sendCode(email, allowNewStudent = false, fullName = '') {
+    const body = {email: String(email).trim(), create_user: !!allowNewStudent};
+    if (allowNewStudent) body.data = {full_name: String(fullName || '').trim().slice(0, 80)};
     try {
-      await http('/auth/v1/otp?redirect_to=' + encodeURIComponent('https://pratham-1171.github.io/German_A1-B1/'), {method: 'POST', body: {email: String(email).trim(), create_user: false}});
+      // Only Student → Create account can request creation of a new Auth user.
+      await http('/auth/v1/otp', {method: 'POST', body});
     } catch (e) {
+      // Keep account-existence details private; surface rate limits/provider errors.
       if (e.offline || e.status === 429 || e.status >= 500) throw e;
-      // For other client errors, keep the same UI response to avoid exposing
-      // whether an email address is registered.
     }
   }
+
   async function verifyCode(email, code) {
-    const r = await http('/auth/v1/verify', {method: 'POST', body: {type: 'email', email: String(email).trim(), token: String(code).replace(/\s+/g, '')}});
-    auth = null; setSession(r.data); await loadProfile();
+    const r = await http('/auth/v1/verify', {
+      method: 'POST',
+      body: {type: 'email', email: String(email).trim(), token: String(code).replace(/\s+/g, '')}
+    });
+    auth = null; setSession(r.data);
+    const profile = await loadProfile();
     if (!sync.uid || sync.uid !== auth.user.id) sync = {uid: auth.user.id};
     touchClock(true); ls.set(K_SYNC, sync);
-    return auth.profile;
+    return profile;
   }
 
-  /* ---------------- login screen ---------------- */
   function showLogin(msg) {
     css(); document.body.classList.add('sp-locked');
     let box = document.getElementById('spAuth'); if (box) box.remove();
-    const lock = document.getElementById('spLock'); if (lock) lock.remove();
+    const oldLock = document.getElementById('spLock'); if (oldLock) oldLock.remove();
     box = document.createElement('div'); box.id = 'spAuth';
-    let mode = 'in', who = 'student', method = 'password', codeSent = false, resendAt = 0;
+    let mode = 'in', who = 'student', codeSent = false, resendAt = 0;
+
+    const setErr = (message, ok) => {
+      const el = box.querySelector('#spErr');
+      if (el) { el.textContent = message; el.className = 'sp-err' + (ok ? ' sp-ok' : ''); }
+    };
     const draw = () => {
-      const adminCode = who === 'admin' && method === 'code';
-      box.innerHTML = `<form class="sp-card" id="spForm" autocomplete="on" novalidate>
-        <h2>🇩🇪 Sprachtreppe</h2><div class="mini-muted">${who === 'admin' ? 'Teacher / admin sign-in' : 'Student sign-in'}</div>
-        <div class="sp-tabs"><button type="button" class="btn small ${who === 'student' ? '' : 'ghost'}" data-who="student">Student</button><button type="button" class="btn small ${who === 'admin' ? '' : 'ghost'}" data-who="admin">Admin</button></div>
-        ${mode === 'up' && who === 'student' ? '<label for="spName">Your name</label><input id="spName" autocomplete="name" maxlength="80">' : ''}
-        <label for="spEmail">Email</label><input id="spEmail" type="email" inputmode="email" autocomplete="username" required>
-        ${adminCode ? (codeSent ? '<label for="spCode">Code from the email</label><input id="spCode" inputmode="numeric" autocomplete="one-time-code" maxlength="10">' : '')
-          : `<label for="spPw">Password</label><input id="spPw" type="password" autocomplete="${mode === 'up' ? 'new-password' : 'current-password'}" minlength="10" required>`}
-        <div class="sp-err" id="spErr" role="alert">${E(msg || '')}</div>
-        <button class="btn" style="width:100%;margin-top:6px" type="submit">${adminCode ? (codeSent ? 'Verify and sign in' : 'Send me a code') : mode === 'up' ? 'Create student account' : 'Sign in'}</button>
-        <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:13px;gap:10px">
-          ${who === 'student' ? `<a href="#" id="spSwitch">${mode === 'up' ? 'I already have an account' : 'Create account'}</a>` : `<a href="#" id="spMethod">${adminCode ? 'Use password instead' : 'Use an emailed code instead'}</a>`}
-          ${adminCode ? (codeSent ? '<a href="#" id="spResend">Send a new code</a>' : '<span></span>') : '<a href="#" id="spForgot">Forgot password?</a>'}</div>
-        <div class="mini-muted" style="margin-top:12px">Internet is needed to sign in and once a week to send your progress to your teacher.</div></form>`;
-      box.querySelectorAll('[data-who]').forEach(b => b.onclick = () => { who = b.dataset.who; method = who === 'admin' ? 'code' : 'password'; codeSent = false; if (who === 'admin') mode = 'in'; msg = ''; draw(); });
-      const sw = box.querySelector('#spSwitch'); if (sw) sw.onclick = e => { e.preventDefault(); mode = mode === 'up' ? 'in' : 'up'; msg = ''; draw(); };
-      const mt = box.querySelector('#spMethod'); if (mt) mt.onclick = e => { e.preventDefault(); method = method === 'code' ? 'password' : 'code'; codeSent = false; msg = ''; draw(); };
+      const creatingStudent = who === 'student' && mode === 'up';
+      box.innerHTML = '<form class="sp-card" id="spForm" autocomplete="on" novalidate>' +
+        '<h2>🇩🇪 Sprachtreppe</h2>' +
+        '<div class="mini-muted">' + (who === 'admin' ? 'Teacher / admin access' : creatingStudent ? 'Create a student account' : 'Student sign-in') + '</div>' +
+        '<div class="sp-tabs">' +
+        '<button type="button" class="btn small ' + (who === 'student' ? '' : 'ghost') + '" data-who="student">Student</button>' +
+        '<button type="button" class="btn small ' + (who === 'admin' ? '' : 'ghost') + '" data-who="admin">Admin</button></div>' +
+        (creatingStudent ? '<label for="spName">Full name</label><input id="spName" autocomplete="name" maxlength="80" required>' : '') +
+        '<label for="spEmail">Email</label><input id="spEmail" type="email" inputmode="email" autocomplete="email" required ' + (codeSent ? 'disabled' : '') + '>' +
+        (codeSent ? '<label for="spCode">6-digit email code</label><input id="spCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>' : '') +
+        '<div class="sp-err" id="spErr" role="alert">' + E(msg || '') + '</div>' +
+        '<button class="btn" style="width:100%;margin-top:6px" type="submit">' + (codeSent ? 'Verify code' : creatingStudent ? 'Send registration code' : 'Send 6-digit code') + '</button>' +
+        '<div style="display:flex;justify-content:space-between;margin-top:12px;font-size:13px;gap:10px">' +
+        (who === 'student' ? '<a href="#" id="spSwitch">' + (mode === 'up' ? 'I already have an account' : 'Create account') + '</a>' : '<span>Only approved teachers and administrators can continue.</span>') +
+        (codeSent ? '<a href="#" id="spResend">Send a new code</a>' : '<span></span>') + '</div>' +
+        '<div class="mini-muted" style="margin-top:12px">Sign-in uses a one-time email code. New student accounts stay pending until an administrator approves them. Internet is needed to sign in and to sync progress each week.</div>' +
+        '</form>';
+
+      box.querySelectorAll('[data-who]').forEach(b => b.onclick = () => {
+        who = b.dataset.who; mode = 'in'; codeSent = false; msg = ''; draw();
+      });
+      const sw = box.querySelector('#spSwitch');
+      if (sw) sw.onclick = e => { e.preventDefault(); mode = mode === 'up' ? 'in' : 'up'; codeSent = false; msg = ''; draw(); };
+
       const rs = box.querySelector('#spResend');
-      if (rs) rs.onclick = e => {
+      if (rs) rs.onclick = async e => {
         e.preventDefault();
         const waitMs = resendAt - Date.now();
         if (waitMs > 0) { setErr('Wait ' + Math.ceil(waitMs / 1000) + ' seconds before requesting another code.'); return; }
-        codeSent = false; msg = ''; draw();
-      };
-      const fg = box.querySelector('#spForgot');
-      if (fg) fg.onclick = async e => {
-        e.preventDefault(); const em = box.querySelector('#spEmail').value.trim();
-        if (!em) { setErr('Enter your email first.'); return; }
-        const resetRedirect = 'https://pratham-1171.github.io/German_A1-B1/';
+        const email = box.querySelector('#spEmail').value.trim();
+        const name = (box.querySelector('#spName') || {}).value || '';
         try {
-          await http('/auth/v1/recover?redirect_to=' + encodeURIComponent(resetRedirect), {method: 'POST', body: {email: em}});
-          setErr('If the address is registered, a reset email has been sent. Open the newest email in your browser. The link expires and can only be used once.', true);
-        } catch (er) {
-          setErr(er.offline ? 'No internet connection.' : er.status === 429
-            ? 'Too many reset requests. Wait a minute before trying again.'
-            : 'Could not send the email. Check Supabase Auth email settings and try again.');
+          await sendCode(email, who === 'student' && mode === 'up', name);
+          resendAt = Date.now() + 60000;
+          setErr('If this email is eligible, a new 6-digit code was sent. Check inbox and spam.', true);
+        } catch (e2) {
+          setErr(e2.offline ? 'No internet connection.' : e2.status === 429 ? 'Too many requests. Wait at least 60 seconds before retrying.' : 'Could not send the code. Check email settings and retry.');
         }
       };
       box.querySelector('#spForm').onsubmit = submit;
     };
-    const setErr = (m, ok) => { const el = box.querySelector('#spErr'); el.textContent = m; el.className = 'sp-err' + (ok ? ' sp-ok' : ''); };
+
     const submit = async ev => {
       ev.preventDefault();
-      const email = box.querySelector('#spEmail').value;
-      if (Date.now() < cooldownUntil) { setErr('Too many attempts. Wait ' + Math.ceil((cooldownUntil - Date.now()) / 1000) + ' s.'); return; }
+      const email = box.querySelector('#spEmail').value.trim();
+      const creatingStudent = who === 'student' && mode === 'up';
+      const name = ((box.querySelector('#spName') || {}).value || '').trim();
+      if (Date.now() < cooldownUntil) { setErr('Too many attempts. Wait ' + Math.ceil((cooldownUntil - Date.now()) / 1000) + ' seconds.'); return; }
       if (!/^\S+@\S+\.\S+$/.test(email)) { setErr('Enter a valid email address.'); return; }
+      if (creatingStudent && !name) { setErr('Enter your full name.'); return; }
+
       const btn = box.querySelector('button[type=submit]');
-      const notAdmin = () => { const tk = auth && auth.access_token; auth = null; ls.del(K_AUTH); if (tk) http('/auth/v1/logout', {method: 'POST', token: tk, timeout: 5000}).catch(() => {}); setErr('This account is not an administrator.'); btn.disabled = false; };
-      if (who === 'admin' && method === 'code') {
+      if (!codeSent) {
         btn.disabled = true;
-        if (!codeSent) {
-          try {
-            await sendCode(email);
-            const keep = email;
-            codeSent = true; resendAt = Date.now() + 30000; msg = ''; draw();
-            box.querySelector('#spEmail').value = keep;
-            setErr('If this address belongs to an administrator, a code was sent. Check inbox and spam. For a numeric code, Supabase → Authentication → Email Templates → Magic Link must contain {{ .Token }}.', true);
-          } catch (e) {
-            setErr(e.offline ? 'No internet connection.'
-              : e.status === 429 ? 'Supabase is limiting email requests. Wait at least 30–60 seconds before retrying.'
-              : 'Could not send the login email. Check Supabase Auth email settings and try again.');
-            btn.disabled = false;
-          }
-          return;
-        }
-        const code = box.querySelector('#spCode').value.replace(/\s+/g, '');
-        if (!/^\d{6,10}$/.test(code)) { setErr('Enter the code from the email (digits only).'); btn.disabled = false; return; }
         try {
-          const prof = await verifyCode(email, code); failedLogins = 0;
-          if (prof.role !== 'admin') { notAdmin(); return; }
-          await finishLogin(prof, who);
+          await sendCode(email, creatingStudent, name);
+          codeSent = true; resendAt = Date.now() + 60000; msg = ''; draw();
+          const em = box.querySelector('#spEmail'); if (em) em.value = email;
+          const nm = box.querySelector('#spName'); if (nm) nm.value = name;
+          setErr('If this email is eligible, a 6-digit code was sent. Check inbox and spam.', true);
         } catch (e) {
-          if (!e.offline) { failedLogins++; if (failedLogins >= 5) { cooldownUntil = Date.now() + 30000; failedLogins = 0; } }
-          setErr(e.offline ? 'No internet connection. Sign-in needs internet.' : e.status === 429 ? 'Too many attempts — try again later.' : 'Invalid or expired code.');
+          setErr(e.offline ? 'No internet connection.' : e.status === 429 ? 'Too many email requests. Wait at least 60 seconds.' : 'Could not send the code. Check email settings and try again.');
           btn.disabled = false;
         }
         return;
       }
-      const pw = box.querySelector('#spPw').value;
-      if (mode === 'up' && (pw.length < 10 || !/[a-zA-Z]/.test(pw) || !/\d/.test(pw))) { setErr('Use at least 10 characters with letters and digits.'); return; }
-      if (!pw) { setErr('Enter your password.'); return; }
+
+      const code = (box.querySelector('#spCode') || {}).value || '';
+      if (!/^\d{6}$/.test(code.trim())) { setErr('Enter the 6-digit code from the email.'); return; }
       btn.disabled = true;
       try {
-        if (mode === 'up') {
-          const nm = (box.querySelector('#spName') || {}).value || '';
-          const data = await signUp(email, pw, nm);
-          box.querySelector('#spPw').value = '';
-          if (data && data.access_token) { await finishLogin(await signIn(email, pw), who); return; }
-          mode = 'in'; draw(); setErr('Account created. Confirm your email if you received a message, then sign in. Your teacher must approve you before your progress is counted.', true); return;
+        const profile = await verifyCode(email, code);
+        if (creatingStudent) {
+          if (profile.role !== 'student' || profile.approved) {
+            await signOut(false);
+            setErr('This email already belongs to an account. Choose Student → Sign in instead.');
+            btn.disabled = false; return;
+          }
+          await http('/rest/v1/rpc/complete_student_signup', {
+            method: 'POST', token: await token(), body: {p_full_name: name}
+          });
+          await signOut(false);
+          mode = 'in'; who = 'student'; codeSent = false;
+          msg = 'Account created. An administrator must approve it before you can sign in.';
+          draw();
+          const em = box.querySelector('#spEmail'); if (em) em.value = email;
+          setErr(msg, true);
+          return;
         }
-        const prof = await signIn(email, pw);
-        box.querySelector('#spPw').value = ''; failedLogins = 0;
-        if (who === 'admin' && prof.role !== 'admin') { notAdmin(); return; }
-        await finishLogin(prof, who);
+
+        if (!profile.approved) {
+          await signOut(false);
+          setErr('Your account is waiting for administrator approval. Please try again after approval.');
+          btn.disabled = false; return;
+        }
+        if (who === 'admin' && !['teacher', 'admin'].includes(profile.role)) {
+          await signOut(false);
+          setErr('This is not an approved teacher/admin account. Ask an administrator to approve or promote it.');
+          btn.disabled = false; return;
+        }
+        if (who === 'student' && profile.role !== 'student') {
+          await signOut(false);
+          setErr('This account has staff access. Use the Admin tab.');
+          btn.disabled = false; return;
+        }
+        failedLogins = 0;
+        await finishLogin(profile);
       } catch (e) {
         if (!e.offline) { failedLogins++; if (failedLogins >= 5) { cooldownUntil = Date.now() + 30000; failedLogins = 0; } }
-        setErr(e.offline ? 'No internet connection. Sign-in needs internet.' : (e.code === 'email_not_confirmed' || /email not confirmed/i.test(e.message || '')) ? 'Your email address is not confirmed yet. Open the confirmation email, or ask your teacher to confirm your account.' : e.status === 429 ? 'Too many attempts — try again later.' : mode === 'up' ? trunc(e.message, 140) : 'Invalid email or password.');
+        if (auth && auth.access_token) await signOut(false);
+        setErr(e.offline ? 'No internet connection. Sign-in needs internet.' : e.status === 429 ? 'Too many attempts — try again later.' : e.status === 400 && /token|otp|code/i.test(e.message || '') ? 'Invalid or expired code.' : (e.message && /student registration is unavailable/i.test(e.message)) ? 'This account cannot use registration. Try Student → Sign in.' : 'Could not complete sign-in. Check the code, approval status, and try again.');
         btn.disabled = false;
       }
     };
+
     document.body.appendChild(box); draw();
   }
-  async function finishLogin(prof) {
+
+    async function finishLogin(prof) {
     if (adoptUser(auth.user.id)) return;
     const b = document.getElementById('spAuth'); if (b) b.remove();
     document.body.classList.remove('sp-locked');
@@ -414,25 +428,19 @@
   window.viewAccount = function (el) {
     if (!auth || !auth.profile) { el.innerHTML = '<div class="card">Not signed in.</div>'; return; }
     const p = auth.profile, st = lockState();
+    const roleLabel = isAdmin() ? 'Administrator' : isTeacher() ? 'Teacher' : p.approved ? 'Student · approved' : 'Student · waiting for approval';
     const fb = (sync.feedback || []).slice(0, 8);
     el.innerHTML = `<h2>Account</h2>
       <div class="card"><div><b>${E(p.full_name || p.email)}</b></div><div class="mini-muted">${E(p.email)}</div>
-        <div style="margin-top:8px"><span class="sp-badge ${isAdmin() ? 'ok' : p.approved ? 'ok' : 'warn'}">${isAdmin() ? 'Administrator' : p.approved ? 'Student · approved' : 'Student · waiting for approval'}</span></div>
+        <div style="margin-top:8px"><span class="sp-badge ${p.approved ? "ok" : "warn"}">${E(roleLabel)}</span></div>
         ${isStudent() ? `<p class="mini-muted" style="margin-top:12px;line-height:1.6">Last sent to your teacher: <b>${sync.lastOk ? fmtAgo(new Date(sync.lastOk).toISOString()) : 'not yet'}</b><br>Next sync due within: <b>${Math.ceil(st.left)} days</b> (every ${SYNC_DAYS} days)</p>
         <div class="row"><button class="btn" id="spSyncBtn">🔄 Sync now</button></div><div id="spSyncMsg" class="mt mini-muted">${sync.lastError ? E(sync.lastError === 'offline' ? 'Offline — will retry when connected.' : sync.lastError) : ''}</div>` : ''}
       </div>
       ${fb.length ? `<h3>Teacher feedback</h3><div class="card">${fb.map(f => `<div style="margin-bottom:12px"><span class="sp-badge ${f.status === 'flagged' ? 'bad' : 'ok'}">${E(f.status)}</span> ${f.rating ? '★'.repeat(f.rating | 0) : ''}<div style="margin-top:6px;white-space:pre-wrap">${E(f.note || '(no comment)')}</div></div>`).join('')}</div>` : ''}
-      <h3>Change password</h3><div class="card sp-card" style="width:auto;box-shadow:none;border:0;padding:0">
-        <label for="spNewPw">New password (10+ characters)</label><input id="spNewPw" type="password" autocomplete="new-password">
-        <div class="row"><button class="btn ghost" id="spPwBtn">Update password</button></div><div id="spPwMsg" class="mt mini-muted"></div></div>
+      <div class="mini-muted" style="margin-top:12px">Sign-in is passwordless. A one-time code is sent to your email whenever you sign in.</div>
       <div class="row" style="margin-top:16px"><button class="btn ghost" id="spOutBtn">Sign out</button></div>`;
     const sb = el.querySelector('#spSyncBtn');
     if (sb) sb.onclick = async () => { const m = el.querySelector('#spSyncMsg'); m.textContent = 'Syncing…'; try { const r = await syncNow(true); m.textContent = r && r.pending ? 'Waiting for teacher approval.' : 'Sent ✔'; setTimeout(() => window.viewAccount(el), 700); } catch (e) { m.textContent = e.offline ? 'No internet connection.' : trunc(e.message, 120); } };
-    el.querySelector('#spPwBtn').onclick = async () => {
-      const m = el.querySelector('#spPwMsg'), pw = el.querySelector('#spNewPw').value;
-      if (pw.length < 10 || !/[a-zA-Z]/.test(pw) || !/\d/.test(pw)) { m.textContent = 'Use 10+ characters with letters and digits.'; return; }
-      try { await http('/auth/v1/user', {method: 'PUT', token: await token(), body: {password: pw}}); el.querySelector('#spNewPw').value = ''; m.textContent = 'Password updated ✔'; } catch (e) { m.textContent = e.offline ? 'No internet connection.' : trunc(e.message, 120); }
-    };
     el.querySelector('#spOutBtn').onclick = () => { if (confirm('Sign out? You need internet to sign in again.')) signOut(); };
   };
 
@@ -486,8 +494,13 @@
     const skillRows = Object.entries(skills).filter(([, v]) => v.done > 0).sort((a, b) => (a[1].correct / a[1].done) - (b[1].correct / b[1].done));
     el.innerHTML = `<div class="row"><button class="btn ghost small" id="admBack">← Students</button></div>
       <h2>${E(row.full_name || row.email || 'Student')}</h2><div class="mini-muted">${E(row.email || '')}</div>
-      <div style="margin:10px 0">${row.approved ? '<span class="sp-badge ok">approved</span>' : '<span class="sp-badge warn">pending</span>'} ${overdue(row) ? '<span class="sp-badge bad">overdue</span>' : ''}
-        <button class="btn tiny" id="admApprove">${row.approved ? 'Disable account' : 'Approve account'}</button></div>
+      <div style="margin:10px 0">
+        <span class="sp-badge">${row.role === 'teacher' ? 'Teacher' : 'Student'}</span>
+        ${row.approved ? '<span class="sp-badge ok">approved</span>' : '<span class="sp-badge warn">pending</span>'}
+        ${overdue(row) ? '<span class="sp-badge bad">overdue</span>' : ''}
+        <button class="btn tiny" id="admApprove">${row.approved ? 'Disable account' : 'Approve account'}</button>
+        ${row.role === 'teacher' ? '<button class="btn tiny ghost" id="admRoleBtn">Return to student</button>' : row.approved && row.role === 'student' ? '<button class="btn tiny ghost" id="admRoleBtn">Promote to teacher</button>' : ''}
+      </div>
       ${last ? `<div class="sp-grid">
         <div class="sp-stat"><b>${E(pctOf(s.correct_7d, s.answers_7d))}</b>accuracy (7 d)</div><div class="sp-stat"><b>${E(s.answers_7d | 0)}</b>answers (7 d)</div>
         <div class="sp-stat"><b>${E(s.active_days_7d | 0)}/7</b>active days</div><div class="sp-stat"><b>${E(s.streak | 0)}</b>day streak</div>
@@ -505,6 +518,18 @@
     el.querySelector('#admApprove').onclick = async () => {
       try { await admRest('profiles?id=eq.' + encodeURIComponent(id), {method: 'PATCH', body: {approved: !row.approved}, headers: {Prefer: 'return=minimal'}}); row.approved = !row.approved; admStudent(el, id); }
       catch (e) { toast(e.offline ? 'No internet connection.' : trunc(e.message, 100)); }
+    };
+    const roleBtn = el.querySelector('#admRoleBtn');
+    if (roleBtn) roleBtn.onclick = async () => {
+      const nextRole = row.role === 'teacher' ? 'student' : 'teacher';
+      const action = nextRole === 'teacher' ? 'promote this approved student to teacher' : 'return this teacher to student';
+      if (!confirm('Are you sure you want to ' + action + '?')) return;
+      try {
+        await admRpc('admin_set_user_role', {p_user_id: id, p_role: nextRole});
+        row.role = nextRole;
+        if (nextRole === 'teacher') row.approved = true;
+        admStudent(el, id);
+      } catch (e) { toast(e.offline ? 'No internet connection.' : trunc(e.message, 120)); }
     };
     el.querySelectorAll('[data-rev]').forEach(b => b.onclick = async () => {
       const sid = b.dataset.rev, note = el.querySelector('#rn-' + sid).value.slice(0, 2000), r = el.querySelector('[data-rate="' + sid + '"]').value;

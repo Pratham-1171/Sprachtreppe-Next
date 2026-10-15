@@ -31,8 +31,8 @@ jobs:
         run: npm test
       - name: Build web app
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://biqkgnkiuibckbhfsbrs.supabase.co' }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'sb_publishable_bpD4TfJpORZR0CFdKbvRmA_hbzCNYq9' }}
+          SUPABASE_URL: https://nkmiziinazafpbsavyxg.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_T8uG8WYBE_zUCDLM2F
         run: python3 scripts/build-course.py
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
