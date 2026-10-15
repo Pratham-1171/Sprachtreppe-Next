@@ -9,15 +9,22 @@ class StudySession {
     required this.level,
     required this.correct,
     required this.total,
+    this.id = '',
   });
 
+  final String id;
   final DateTime completedAt;
   final String mode;
   final String level;
   final int correct;
   final int total;
 
+  String get stableId => id.isNotEmpty
+      ? id
+      : 'legacy:${completedAt.toUtc().toIso8601String()}:${mode.toLowerCase()}:$level:$correct:$total';
+
   Map<String, Object> toJson() => {
+        'id': stableId,
         'completedAt': completedAt.toIso8601String(),
         'mode': mode,
         'level': level,
@@ -26,13 +33,20 @@ class StudySession {
       };
 
   factory StudySession.fromJson(Map<String, dynamic> json) {
+    final completedAt = DateTime.tryParse(json['completedAt'] as String? ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    final mode = json['mode'] as String? ?? 'Practice';
+    final level = json['level'] as String? ?? 'All';
+    final correct = (json['correct'] as num?)?.toInt() ?? 0;
+    final total = (json['total'] as num?)?.toInt() ?? 0;
     return StudySession(
-      completedAt: DateTime.tryParse(json['completedAt'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-      mode: json['mode'] as String? ?? 'Practice',
-      level: json['level'] as String? ?? 'All',
-      correct: (json['correct'] as num?)?.toInt() ?? 0,
-      total: (json['total'] as num?)?.toInt() ?? 0,
+      id: (json['id'] as String?) ??
+          'legacy:${completedAt.toUtc().toIso8601String()}:${mode.toLowerCase()}:$level:$correct:$total',
+      completedAt: completedAt,
+      mode: mode,
+      level: level,
+      correct: correct,
+      total: total,
     );
   }
 }
@@ -172,6 +186,7 @@ class ProgressService {
     sessions.insert(
       0,
       StudySession(
+        id: 'session-${DateTime.now().microsecondsSinceEpoch}',
         completedAt: completedAt ?? DateTime.now(),
         mode: mode,
         level: level,
@@ -186,6 +201,27 @@ class ProgressService {
     }).toList();
     await preferences.setStringList(_storageKey, saved);
     return ProgressStats.fromSessions(sessions);
+  }
+
+  /// Merge imported sessions with local offline sessions by their stable event ID.
+  /// A session synced by two devices is persisted only once.
+  Future<List<StudySession>> mergeSessions(Iterable<StudySession> incoming) async {
+    final preferences = await _resolvePreferences();
+    final all = <String, StudySession>{};
+    for (final session in await _readSessions(preferences)) {
+      all[session.stableId] = session;
+    }
+    for (final session in incoming) {
+      all.putIfAbsent(session.stableId, () => session);
+    }
+    final merged = all.values.toList()
+      ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+    final saved = merged.take(500).toList();
+    await preferences.setStringList(
+      _storageKey,
+      saved.map((session) => jsonEncode(session.toJson())).toList(),
+    );
+    return saved;
   }
 
   Future<List<StudySession>> _readSessions(
