@@ -826,7 +826,10 @@
     if (!window.__spListeners) { window.__spListeners = true; window.addEventListener('online', tick); document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); }); }
     if (online() && auth && auth.refresh_token) loadProfile().then(() => {
       syncNav(); renderChip(); renderLock();
-      if (isStudent() && auth.profile.approved) syncNow(false).catch(() => {});
+      // A previously authenticated browser should not silently reset the weekly
+      // lock just by opening the page. Explicit OTP sign-in already performs an
+      // initial sync in finishLogin(); old sessions sync on activity, retry, or
+      // the lock-screen button, so a failed/offline sync never unlocks them.
     }).catch(e => { if (e.status === 400 || e.status === 404) signOut(); });
   }
   function stopServices() { clearInterval(timer); clearTimeout(syncTimer); const c = document.getElementById('spChip'); if (c) c.textContent = ''; const a = document.getElementById('spAcct'); if (a) a.remove(); if (c) c.remove(); }
