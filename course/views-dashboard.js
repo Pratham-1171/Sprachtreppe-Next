@@ -162,7 +162,7 @@ function renderSessionSummary(el){
   const accuracy = pct(correct, total);
   const duration = Math.floor((Date.now() - sessionState.startTime) / 1000);
   S.studyTime.sessions = (S.studyTime.sessions || 0) + 1;
-  S.sessionHistory.push({date:new Date().toISOString().slice(0,10), questions:total, correct, duration});
+  S.sessionHistory.push({id:'web-session:' + courseUuid(), date:new Date().toISOString().slice(0,10), questions:total, correct, duration});
   if(S.sessionHistory.length > 200) S.sessionHistory = S.sessionHistory.slice(-200);
   touchStreak(); STORE.save(); checkAchievements();
   sessionState.active = false;
