@@ -248,9 +248,10 @@ class _SyncedLearningCard extends StatelessWidget {
     final courseMastery = rawCourseMastery is Map ? rawCourseMastery : <dynamic, dynamic>{};
     final rawAggregateMastery = state['vocabularyMastery'];
     final aggregateMastery = rawAggregateMastery is Map ? rawAggregateMastery : <dynamic, dynamic>{};
-    final vocabulary = courseMastery.isNotEmpty
-        ? courseMastery.values.whereType<Map>().toList()
-        : aggregateMastery.values.whereType<Map>().toList();
+    // Exact keys already present in the legacy course map take precedence;
+    // include native answer aggregates for keys the course map does not contain.
+    final combinedMastery = <dynamic, dynamic>{...aggregateMastery, ...courseMastery};
+    final vocabulary = combinedMastery.values.whereType<Map>().toList();
     final mastered = vocabulary.where((item) {
       final status = (item['status'] ?? '').toString().toUpperCase();
       return status == 'MASTERED' || status == 'STRONG' || status == 'LEARNED';
@@ -260,18 +261,17 @@ class _SyncedLearningCard extends StatelessWidget {
     final courseGrammar = rawCourseGrammar is Map ? rawCourseGrammar : <dynamic, dynamic>{};
     final rawAggregateGrammar = state['grammarCompletion'];
     final aggregateGrammar = rawAggregateGrammar is Map ? rawAggregateGrammar : <dynamic, dynamic>{};
-    final completedGrammar = courseGrammar.isNotEmpty
-        ? courseGrammar.values.where((item) => item == true || item is Map && item['completed'] == true).length
-        : aggregateGrammar.values.where((item) =>
-            item is Map && (item['completed'] == true || item['completed'] == 'true')).length;
+    final combinedGrammar = <dynamic, dynamic>{...aggregateGrammar, ...courseGrammar};
+    final completedGrammar = combinedGrammar.values.where((item) =>
+        item == true || item is Map &&
+        (item['completed'] == true || item['completed'] == 'true')).length;
 
     final rawCourseMistakes = course['mistakes'];
     final courseMistakes = rawCourseMistakes is Map ? rawCourseMistakes : <dynamic, dynamic>{};
     final rawAggregateMistakes = state['mistakes'];
     final aggregateMistakes = rawAggregateMistakes is Map ? rawAggregateMistakes : <dynamic, dynamic>{};
-    final mistakes = courseMistakes.isNotEmpty
-        ? courseMistakes.values.whereType<Map>()
-        : aggregateMistakes.values.whereType<Map>();
+    final combinedMistakes = <dynamic, dynamic>{...aggregateMistakes, ...courseMistakes};
+    final mistakes = combinedMistakes.values.whereType<Map>();
     final mistakeCount = mistakes.fold<int>(0, (sum, item) =>
         sum + _number(item['count'] ?? item['n'] ?? 1));
 
@@ -286,11 +286,12 @@ class _SyncedLearningCard extends StatelessWidget {
     final courseStreak = rawCourseStreak is Map ? rawCourseStreak : <dynamic, dynamic>{};
     final rawSharedStreak = state['streak'];
     final sharedStreak = rawSharedStreak is Map ? rawSharedStreak : <dynamic, dynamic>{};
-    final currentStreak = [
-      _number(sharedStreak['current']),
-      _number(courseStreak['current']),
-      _number(summary['currentStreak']),
-    ].reduce((a, b) => a > b ? a : b);
+    final currentStreak = sharedStreak.containsKey('current')
+        ? _number(sharedStreak['current'])
+        : [
+            _number(courseStreak['current']),
+            _number(summary['currentStreak']),
+          ].reduce((a, b) => a > b ? a : b);
     final bestStreak = [
       _number(summary['bestStreak']),
       _number(courseStreak['longest']),
