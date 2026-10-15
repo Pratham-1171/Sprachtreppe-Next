@@ -7,6 +7,7 @@ import 'assignment_submission_service.dart';
 import 'offline_assignment_progress_service.dart';
 import 'offline_assignment_submission_queue_service.dart';
 import 'progress_service.dart';
+import 'learning_state_sync_service.dart';
 
 class SyncFeedback {
   const SyncFeedback({
@@ -125,6 +126,14 @@ class OfflineSyncService {
     final user = _client.auth.currentUser;
     if (user == null || user.id != userId) {
       throw StateError('Please sign in again before syncing progress.');
+    }
+
+    // Personal learning state is separate from teacher-report submissions.
+    // Try it first, but do not block the established assignment/report sync if offline.
+    try {
+      await LearningStateSyncService(_client, userId).sync();
+    } catch (_) {
+      // Progress and answer events remain on-device and will retry on launch/resume.
     }
 
     final preferences = await SharedPreferences.getInstance();
