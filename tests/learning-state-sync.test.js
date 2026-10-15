@@ -83,3 +83,39 @@ test('a second device downloads and merges the saved course learning state on si
   assert.equal(imported.mistakes['vocab-v17'].count, 2);
   assert.ok(imported.sessionHistory.some(s => s.id === 'session-from-device-a'));
 });
+
+test('browser answer events are shared and idempotent across devices', async () => {
+  const server = createServer();
+  const student = server.addUser('events@school.org', PW, {name: 'Event Student', role: 'student', approved: true});
+  const first = boot(server);
+  await signIn(first.window, student.email);
+  const firstAuth = first.window.SP_AUTH._state().auth;
+  first.window.SP_AUTH.recordLearningAnswer({
+    mode: 'vocabulary', entityType: 'vocabulary', entityId: 'haus',
+    level: 'A1', topic: 'Home', prompt: 'Haus', answer: 'house',
+    expected: 'house', correct: true
+  });
+  first.window.SP_AUTH.recordLearningAnswer({
+    mode: 'grammar', entityType: 'grammar', entityId: 'weil-word-order',
+    level: 'A2', topic: 'Word order', prompt: 'weil', correct: true
+  });
+  await first.window.SP_AUTH.syncLearningAnswerEvents(firstAuth.access_token);
+  assert.equal(first.window.SP_AUTH.pendingLearningAnswerCount(), 0);
+  assert.equal(server.learningAnswerEvents.get(student.id).size, 2);
+  await first.window.SP_AUTH.syncLearningAnswerEvents(firstAuth.access_token);
+  assert.equal(server.learningAnswerEvents.get(student.id).size, 2);
+  const saved = server.learningStates.get(student.id);
+  assert.equal(saved.flutter.summary.eventsTotal, 2);
+  assert.equal(Object.hasOwn(saved.flutter, 'answerEvents'), false);
+
+  const second = boot(server);
+  await signIn(second.window, student.email);
+  const secondAuth = second.window.SP_AUTH._state().auth;
+  second.window.SP_AUTH.recordLearningAnswer({
+    mode: 'vocabulary', entityType: 'vocabulary', entityId: 'lernen',
+    level: 'A1', topic: 'School', prompt: 'lernen', correct: true
+  });
+  await second.window.SP_AUTH.syncLearningAnswerEvents(secondAuth.access_token);
+  assert.equal(server.learningAnswerEvents.get(student.id).size, 3);
+  assert.equal(server.learningStates.get(student.id).flutter.summary.eventsTotal, 3);
+});
