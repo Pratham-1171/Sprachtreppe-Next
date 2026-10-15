@@ -188,7 +188,19 @@
   function normaliseCourseSessions(sessions) {
     return (Array.isArray(sessions) ? sessions : []).filter(item => item && typeof item === 'object').map(item => {
       const session = Object.assign({}, item);
-      if (!session.id) session.id = 'web-session:' + newId();
+      if (!session.id) {
+        // Stable fallback for legacy records made before session IDs existed.
+        // Newer local records keep their ID; matching this legacy key allows
+        // old JSON snapshots to migrate without manufacturing a new session
+        // every time a different device signs in.
+        const day = String(session.date || session.day || session.completedAt || '').slice(0, 10);
+        const mode = String(session.mode || session.skill || 'Web course').slice(0, 50);
+        const level = String(session.level || 'All').slice(0, 10);
+        const questions = Math.max(0, Number(session.questions || session.total) || 0);
+        const correct = Math.max(0, Math.min(questions, Number(session.correct) || 0));
+        const duration = Math.max(0, Number(session.duration || session.durationSeconds) || 0);
+        session.id = ['web-session', day, mode, level, questions, correct, duration].map(encodeURIComponent).join(':');
+      }
       return session;
     });
   }
