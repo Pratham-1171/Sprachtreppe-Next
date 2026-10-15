@@ -40,7 +40,7 @@ class LearningStateSyncService {
   }) async {
     final micros = DateTime.now().microsecondsSinceEpoch;
     final event = <String, Object>{
-      'id': 'answer-' + micros.toString() + '-' + _random.nextInt(1 << 32).toRadixString(16),
+      'id': 'answer-${micros}-${_random.nextInt(1 << 32).toRadixString(16)}',
       'type': 'answer',
       'entityType': mode.toLowerCase().contains('grammar') ? 'grammar' : 'vocabulary',
       'entityId': _normaliseKey('$mode|$level|$topic|$prompt'),
