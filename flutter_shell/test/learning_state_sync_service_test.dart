@@ -39,6 +39,20 @@ void main() {
       expect(merged.last['id'], 'answer-b');
     });
 
+    test('splits large offline queues into batches without dropping answers', () {
+      final events = List<Map<String, dynamic>>.generate(
+        1201,
+        (index) => <String, dynamic>{
+          'id': 'answer-$index',
+          'timestamp': DateTime.utc(2026, 10, 15).add(Duration(seconds: index)).toIso8601String(),
+        },
+      );
+      final batches = LearningStateSyncService.batchEvents(events);
+      expect(batches.map((batch) => batch.length).toList(), [500, 500, 201]);
+      expect(batches.expand((batch) => batch).map((event) => event['id']).toSet(),
+          events.map((event) => event['id']).toSet());
+    });
+
     test('keeps the latest version of a colliding event ID', () {
       final merged = LearningStateSyncService.mergeEvents(
         <Map<String, dynamic>>[
