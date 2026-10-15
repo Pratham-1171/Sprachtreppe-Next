@@ -205,6 +205,7 @@ class _PracticePageState extends State<PracticePage> {
           if (exercise == null || exercise.options.length < 2) continue;
           pool.add(
             _PracticeQuestion(
+              entityId: 'grammar:${lesson.level}:${lesson.title}',
               prompt: '${lesson.title}\n${exercise.question}',
               options: exercise.options,
               correctIndex: exercise.correctIndex,
@@ -242,6 +243,7 @@ class _PracticePageState extends State<PracticePage> {
           const options = ['der', 'die', 'das'];
           pool.add(
             _PracticeQuestion(
+              entityId: 'vocabulary:${word.number}',
               prompt: 'Which article belongs with “${word.german}”?',
               options: options,
               correctIndex: options.indexOf(word.article),
@@ -261,6 +263,7 @@ class _PracticePageState extends State<PracticePage> {
         final options = <String>[correct, ...distractors.take(3)]..shuffle(_random);
         pool.add(
           _PracticeQuestion(
+            entityId: 'vocabulary:${word.number}',
             prompt: mode == _PracticeMode.germanToEnglish
                 ? 'What does “${word.displayGerman}” mean?'
                 : 'Choose the German word for “${word.english}”.',
@@ -294,6 +297,7 @@ class _PracticePageState extends State<PracticePage> {
       level: _level,
       topic: question.detail,
       prompt: question.prompt,
+      entityId: question.entityId,
       answer: question.options[index],
       expected: question.options[question.correctIndex],
       correct: isCorrect,
@@ -650,6 +654,7 @@ class _PracticeLibrary {
 
 class _PracticeQuestion {
   const _PracticeQuestion({
+    required this.entityId,
     required this.prompt,
     required this.options,
     required this.correctIndex,
@@ -657,6 +662,7 @@ class _PracticeQuestion {
     required this.detail,
   });
 
+  final String entityId;
   final String prompt;
   final List<String> options;
   final int correctIndex;
