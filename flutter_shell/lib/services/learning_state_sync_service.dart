@@ -22,7 +22,7 @@ class LearningStateSyncService {
 
   String get _eventsKey => 'sprachtreppe_learning_answer_events_v1_$userId';
   static const int maxLocalEvents = 5000;
-  static const int maxEventsPerSync = 1000;
+  static const int maxEventsPerSync = 500;
 
   /// Save an immutable answer event locally first, then debounce a background
   /// sync. Event IDs make retries idempotent across devices.
@@ -46,10 +46,10 @@ class LearningStateSyncService {
       'timestamp': DateTime.now().toUtc().toIso8601String(),
       'mode': mode,
       'level': level,
-      'topic': topic.length > 120 ? topic.substring(0, 120) : topic,
-      'prompt': prompt.length > 320 ? prompt.substring(0, 320) : prompt,
-      'answer': answer.length > 180 ? answer.substring(0, 180) : answer,
-      'expected': expected.length > 180 ? expected.substring(0, 180) : expected,
+      'topic': topic.length > 80 ? topic.substring(0, 80) : topic,
+      'prompt': prompt.length > 180 ? prompt.substring(0, 180) : prompt,
+      'answer': answer.length > 120 ? answer.substring(0, 120) : answer,
+      'expected': expected.length > 120 ? expected.substring(0, 120) : expected,
       'correct': correct,
     };
     events.add(event);
@@ -171,7 +171,7 @@ class LearningStateSyncService {
 
   static String _normaliseKey(String value) {
     final normalized = value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
-    return normalized.length > 300 ? normalized.substring(0, 300) : normalized;
+    return normalized.length > 160 ? normalized.substring(0, 160) : normalized;
   }
 
   static Map<String, Object> _buildFlutterState(
