@@ -1,7 +1,7 @@
 // In-memory stand-in for the Supabase endpoints the app uses. It mirrors the RLS rules proven in sql.test.js.
 function createServer(opts) {
   opts = opts || {};
-  const S = {users: new Map(), tokens: new Map(), refresh: new Map(), subs: [], nextSub: 1, assignments: [], assignmentProgress: new Map(), learningStates: new Map(), learningStateRevisions: new Map(), nextAssignment: 1, offline: false, autoConfirm: opts.autoConfirm !== false, log: [], idc: 1};
+  const S = {users: new Map(), tokens: new Map(), refresh: new Map(), subs: [], nextSub: 1, assignments: [], assignmentProgress: new Map(), learningStates: new Map(), learningStateRevisions: new Map(), learningAnswerEvents: new Map(), nextAssignment: 1, offline: false, autoConfirm: opts.autoConfirm !== false, log: [], idc: 1};
   const uid = () => 'u' + (S.idc++).toString().padStart(4, '0') + '-0000-0000-0000-000000000000';
   S.addUser = (email, password, o) => { o = o || {}; const key = String(email).trim().toLowerCase(); const u = {id: uid(), email: key, password, full_name: o.name || '', role: o.role || 'student', approved: !!o.approved}; S.users.set(key, u); return u; };
   S.addAssignment = options => {
@@ -109,6 +109,61 @@ function createServer(opts) {
       target.role = body.p_role; if (body.p_role === 'teacher' || body.p_role === 'admin') target.approved = true;
       return R(200, {id: target.id, email: target.email, full_name: target.full_name, role: target.role, approved: target.approved});
     }
+    if (p === '/rest/v1/rpc/sync_learning_answer_events') {
+      if (!me.approved || me.role !== 'student') return R(403, {message: 'approved student account required', code: '42501'});
+      const events = body.p_events;
+      if (!Array.isArray(events) || events.length > 500) return R(400, {message: 'invalid event batch', code: '22023'});
+      if (events.some(e => !e || typeof e !== 'object' || Array.isArray(e) ||
+          typeof e.id !== 'string' || !e.id.trim() || e.id.length > 160 ||
+          typeof e.entityId !== 'string' || !e.entityId.trim() || typeof e.correct !== 'boolean')) {
+        return R(400, {message: 'each event needs a stable ID, entity ID, and boolean result', code: '22023'});
+      }
+      const ledger = S.learningAnswerEvents.get(me.id) || new Map();
+      for (const event of events) {
+        if (!ledger.has(event.id)) ledger.set(event.id, JSON.parse(JSON.stringify(event)));
+      }
+      S.learningAnswerEvents.set(me.id, ledger);
+      const byEntity = new Map();
+      const mistakes = {};
+      const grammar = {};
+      for (const event of ledger.values()) {
+        const id = event.entityId;
+        const target = event.entityType === 'grammar' ? grammar : null;
+        if (target) {
+          target[id] = target[id] || {attempts: 0, correct: 0, completed: true};
+          target[id].attempts++; if (event.correct) target[id].correct++;
+        } else {
+          byEntity.set(id, byEntity.get(id) || {attempts: 0, correct: 0});
+          const aggregate = byEntity.get(id); aggregate.attempts++; if (event.correct) aggregate.correct++;
+        }
+        if (!event.correct) {
+          mistakes[id] = mistakes[id] || {count: 0, topic: event.topic || ''};
+          mistakes[id].count++;
+        }
+      }
+      const vocabulary = {};
+      for (const [id, value] of byEntity) {
+        const rate = value.correct / Math.max(value.attempts, 1);
+        vocabulary[id] = Object.assign({}, value, {
+          status: value.attempts >= 3 && rate >= 0.85 ? 'MASTERED' :
+            rate >= 0.6 ? 'STRONG' : value.correct ? 'LEARNING' : 'WEAK'
+        });
+      }
+      const state = S.learningStates.get(me.id) || {};
+      const flutter = Object.assign({}, state.flutter || {});
+      flutter.vocabularyMastery = vocabulary;
+      flutter.grammarCompletion = grammar;
+      flutter.mistakes = mistakes;
+      flutter.summary = Object.assign({}, flutter.summary || {}, {eventsTotal: ledger.size});
+      state.flutter = flutter;
+      S.learningStates.set(me.id, state);
+      const revision = (S.learningStateRevisions.get(me.id) || 0) + 1;
+      S.learningStateRevisions.set(me.id, revision);
+      return R(200, {
+        accepted_ids: events.map(e => e.id), revision,
+        updated_at: new Date().toISOString(), eventsTotal: ledger.size
+      });
+    }
     if (p === '/rest/v1/rpc/sync_learning_state') {
       if (!me.approved || me.role !== 'student') return R(403, {message: 'approved student account required', code: '42501'});
       if (!body.p_state || typeof body.p_state !== 'object' || Array.isArray(body.p_state)) return R(400, {message: 'learning state must be an object'});
@@ -116,7 +171,9 @@ function createServer(opts) {
       S.learningStates.set(me.id, state);
       const revision = (S.learningStateRevisions.get(me.id) || 0) + 1;
       S.learningStateRevisions.set(me.id, revision);
-      return R(200, {state, revision, updated_at: new Date().toISOString()});
+      const eventLedger = S.learningAnswerEvents.get(me.id) || new Map();
+      const answer_events = [...eventLedger.values()].sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))).slice(-500);
+      return R(200, {state, revision, updated_at: new Date().toISOString(), answer_events});
     }
     if (p === '/rest/v1/rpc/submit_progress') {
       if (!me.approved) return R(403, {message: 'account not approved', code: '42501'});
