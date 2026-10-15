@@ -104,7 +104,7 @@ class LearningStateSyncService {
         : <String, dynamic>{};
 
     final mergedEvents = mergeEvents(cloudFlutter['answerEvents'], pendingEvents);
-    final mergedSessions = await _progress.mergeSessions(
+    await _progress.mergeSessions(
       _readSessionsFromState(cloudFlutter['sessions']),
     );
 
@@ -123,10 +123,7 @@ class LearningStateSyncService {
       'revision': response['revision'] is num ? response['revision'] : 0,
       'updatedAt': response['updated_at']?.toString() ?? '',
     }));
-    // Keep the local session union durable for dashboards/streak calculations.
-    // mergeSessions has already written it; this reference prevents accidental
-    // removal of the awaited result if persistence behavior changes later.
-    assert(mergedSessions.isNotEmpty || mergedSessions.isEmpty);
+    // mergeSessions has already written the union locally for dashboard/streak calculations.
   }
 
   /// Chunks the complete local queue rather than truncating it to one API batch.
