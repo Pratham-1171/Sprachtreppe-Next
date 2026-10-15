@@ -21,6 +21,7 @@ class LearningStateSyncService {
   static final Random _random = Random();
 
   String get _eventsKey => 'sprachtreppe_learning_answer_events_v1_$userId';
+  String get _aggregateKey => 'sprachtreppe_learning_aggregates_v1_$userId';
   static const int maxLocalEvents = 5000;
   static const int maxEventsPerSync = 500;
 
@@ -90,6 +91,31 @@ class LearningStateSyncService {
       localEvents = mergeEvents(cloudFlutter['answerEvents'], localEvents);
       localSessions = await _progress.mergeSessions(_readSessionsFromState(cloudFlutter['sessions']));
       await prefs.setString(_eventsKey, jsonEncode(localEvents));
+      // Pull the materialized server aggregates onto this device too: older
+      // mastery/mistake totals remain available even when only recent events
+      // are kept in the smaller on-device event queue.
+      await prefs.setString(_aggregateKey, jsonEncode(<String, Object>{
+        'vocabularyMastery': cloudFlutter['vocabularyMastery'] is Map ? cloudFlutter['vocabularyMastery'] : <String, Object>{},
+        'grammarCompletion': cloudFlutter['grammarCompletion'] is Map ? cloudFlutter['grammarCompletion'] : <String, Object>{},
+        'mistakes': cloudFlutter['mistakes'] is Map ? cloudFlutter['mistakes'] : <String, Object>{},
+        'summary': cloudFlutter['summary'] is Map ? cloudFlutter['summary'] : <String, Object>{},
+        'revision': response['revision'] is num ? response['revision'] : 0,
+        'updatedAt': response['updated_at']?.toString() ?? '',
+      }));
+    }
+  }
+
+  /// Read the last server-synchronized mastery/completion/mistake summary.
+  /// Available offline, including data learned on another device.
+  Future<Map<String, dynamic>> loadAggregateState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = prefs.getString(_aggregateKey);
+    if (encoded == null || encoded.isEmpty) return <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(encoded);
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
     }
   }
 
