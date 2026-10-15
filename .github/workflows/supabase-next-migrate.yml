@@ -63,7 +63,8 @@ jobs:
           cp backend/migrations/018_cross_device_learning_state.sql supabase/migrations/20261015095001_cross_device_learning_state.sql
           cp backend/migrations/019_recompute_cross_device_learning_aggregates.sql supabase/migrations/20261015095743_recompute_cross_device_learning_aggregates.sql
           cp backend/migrations/020_sync_cross_device_answer_batches.sql supabase/migrations/20261015100234_sync_cross_device_answer_batches.sql
-          test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 10
+          cp backend/migrations/021_durable_learning_answer_event_ledger.sql supabase/migrations/20261015101528_durable_learning_answer_event_ledger.sql
+          test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 11
 
       - name: Link to sprachtreppe-next
         env:
