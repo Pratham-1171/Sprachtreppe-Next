@@ -131,7 +131,10 @@ class LearningStateSyncService {
     // The durable event ledger is returned separately from the compact state
     // document; don't depend on the latest-500 event window to acknowledge work.
     final rawServerEvents = response['answer_events'];
-    await _progress.mergeSessions(_readSessionsFromState(cloudFlutter['sessions']));
+    await _progress.mergeSessions(<StudySession>[
+      ..._readSessionsFromState(cloudFlutter['sessions']),
+      ..._readWebSessionsFromState(fullState['sessionHistory']),
+    ]);
 
     // Serialize local cache writes with recordAnswer(). Previously acknowledged
     // batches were removed by ID immediately after their RPC succeeded; any new
@@ -299,6 +302,42 @@ class LearningStateSyncService {
         sessions.add(StudySession.fromJson(Map<String, dynamic>.from(item)));
       } catch (_) {
         // Skip one malformed record and keep other study records.
+      }
+    }
+    return sessions;
+  }
+
+  /// Imports browser-course sessions into native history, using stable IDs.
+  static List<StudySession> _readWebSessionsFromState(dynamic value) {
+    if (value is! List) return <StudySession>[];
+    final sessions = <StudySession>[];
+    for (final item in value.whereType<Map>()) {
+      try {
+        final row = Map<String, dynamic>.from(item);
+        final dateValue = row['date']?.toString() ?? '';
+        final questionsValue = row['questions'];
+        final correctValue = row['correct'];
+        final questions = questionsValue is num
+            ? questionsValue.toInt()
+            : int.tryParse(questionsValue?.toString() ?? '') ?? 0;
+        final correct = correctValue is num
+            ? correctValue.toInt()
+            : int.tryParse(correctValue?.toString() ?? '') ?? 0;
+        if (dateValue.isEmpty || questions <= 0) continue;
+        final parsed = DateTime.tryParse(dateValue);
+        if (parsed == null) continue;
+        final stableId = row['id']?.toString();
+        if (stableId == null || stableId.isEmpty) continue;
+        sessions.add(StudySession(
+          id: stableId,
+          completedAt: parsed,
+          mode: row['mode']?.toString() ?? 'Web course',
+          level: row['level']?.toString() ?? 'All',
+          correct: correct.clamp(0, questions).toInt(),
+          total: questions,
+        ));
+      } catch (_) {
+        // Skip one malformed session while keeping the remaining history.
       }
     }
     return sessions;
