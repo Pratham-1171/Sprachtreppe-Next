@@ -185,10 +185,36 @@
     return {pending: readLearningAnswerQueue(uid).length};
   }
 
+  function normaliseCourseSessions(sessions) {
+    return (Array.isArray(sessions) ? sessions : []).filter(item => item && typeof item === 'object').map(item => {
+      const session = Object.assign({}, item);
+      if (!session.id) session.id = 'web-session:' + newId();
+      return session;
+    });
+  }
+  function importFlutterSessions(sessions) {
+    return (Array.isArray(sessions) ? sessions : []).filter(item => item && typeof item === 'object').map(item => {
+      const timestamp = Date.parse(String(item.completedAt || ''));
+      const date = new Date(Number.isFinite(timestamp) ? timestamp : Date.now());
+      const day = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+      return {
+        id: 'flutter-session:' + String(item.id || (day + ':' + (item.total || 0) + ':' + (item.correct || 0))),
+        date: day,
+        mode: String(item.mode || 'Flutter practice'),
+        level: String(item.level || 'All'),
+        questions: Math.max(0, Number(item.total) || 0),
+        correct: Math.max(0, Math.min(Number(item.total) || 0, Number(item.correct) || 0)),
+        duration: Math.max(0, Number(item.durationSeconds || item.duration) || 0),
+        source: 'flutter'
+      };
+    }).filter(item => item.questions > 0);
+  }
+
   async function syncLearningState(accessToken) {
     const local = JSON.parse(JSON.stringify(S));
     delete local.lastView; // navigation is not learning progress
     delete local.flutter;  // Flutter's normalized answer ledger/aggregates stay server-owned
+    local.sessionHistory = normaliseCourseSessions(local.sessionHistory);
     const response = await http('/rest/v1/rpc/sync_learning_state', {
       method: 'POST', token: accessToken, body: {p_state: local}
     });
@@ -197,8 +223,31 @@
       throw new Error('The server returned an invalid learning-state snapshot.');
     }
     const courseState = JSON.parse(JSON.stringify(serverState));
+    const flutter = courseState.flutter && typeof courseState.flutter === 'object' ? courseState.flutter : {};
+    const flutterSessions = importFlutterSessions(flutter.sessions);
     delete courseState.flutter; // do not copy Flutter's server aggregates into the legacy course state
+    const serverHistory = normaliseCourseSessions(courseState.sessionHistory);
+    const mergedHistory = mergeLearningStates(serverHistory, local.sessionHistory || []);
     const merged = mergeLearningStates(courseState, local);
+    merged.sessionHistory = mergeLearningStates(mergedHistory, flutterSessions);
+
+    // Persist sessions imported from Flutter into the common history as well.
+    // This is only sent when the first RPC did not already include those IDs.
+    const storedIds = new Set(serverHistory.map(session => String(session.id || '')));
+    const needsSessionBackfill = flutterSessions.some(session => !storedIds.has(String(session.id)));
+    let finalRevision = response.data.revision || 0;
+    let finalUpdatedAt = response.data.updated_at || null;
+    if (needsSessionBackfill) {
+      const backfill = await http('/rest/v1/rpc/sync_learning_state', {
+        method: 'POST', token: accessToken, body: {p_state: {sessionHistory: merged.sessionHistory}}
+      });
+      if (!backfill.data || !backfill.data.state || typeof backfill.data.state !== 'object') {
+        throw new Error('The server did not confirm the merged study history.');
+      }
+      finalRevision = backfill.data.revision || finalRevision;
+      finalUpdatedAt = backfill.data.updated_at || finalUpdatedAt;
+    }
+
     if (typeof applyLoadedState === 'function') {
       if (!applyLoadedState({replaceLocal: true, stateVersion: Date.now(), state: merged})) {
         throw new Error('The saved learning state was not compatible with this course version.');
@@ -208,7 +257,7 @@
       Object.assign(S, merged);
       STORE.save();
     }
-    return {revision: response.data.revision || 0, updated_at: response.data.updated_at || null};
+    return {revision: finalRevision, updated_at: finalUpdatedAt};
   }
 
   /* ---------------- session ---------------- */
