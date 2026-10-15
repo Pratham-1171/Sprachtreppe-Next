@@ -121,16 +121,26 @@ void main() {
         'correct': 6,
         'duration': 90,
       },
+      <String, dynamic>{
+        'id': 'flutter-session:native-session-a',
+        'date': '2026-10-15',
+        'mode': 'Grammar',
+        'level': 'A2',
+        'questions': 5,
+        'correct': 4,
+      },
     ];
     final first = LearningStateSyncService.readWebSessionsFromState(raw);
     final second = LearningStateSyncService.readWebSessionsFromState(raw);
 
-    expect(first, hasLength(1));
-    expect(first.single.stableId, 'web-session:2026-10-15');
-    expect(first.single.stableId, second.single.stableId);
-    expect(first.single.total, 8);
-    expect(first.single.correct, 6);
-    expect(first.single.level, 'A2');
+    expect(first, hasLength(2));
+    expect(first.first.stableId, 'web-session:2026-10-15');
+    expect(first.first.stableId, second.first.stableId);
+    expect(first.first.total, 8);
+    expect(first.first.correct, 6);
+    expect(first.first.level, 'A2');
+    expect(first.last.stableId, 'native-session-a',
+        reason: 'a native session sent through browser history must retain its original ID');
   });
 
   test('malformed web course history is skipped without discarding valid sessions', () {
