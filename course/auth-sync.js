@@ -293,14 +293,16 @@
         : '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stableJson(value[key])).join(',') + '}'
       : JSON.stringify(value);
     const needsProgressBackfill = stableJson(existingNativeMirror) !== stableJson(merged.crossDeviceProgress);
+    const needsStreakBackfill = stableJson(courseState.streak || {}) !== stableJson(merged.streak || {});
     let finalRevision = response.data.revision || 0;
     let finalUpdatedAt = response.data.updated_at || null;
-    if (needsSessionBackfill || needsProgressBackfill) {
+    if (needsSessionBackfill || needsProgressBackfill || needsStreakBackfill) {
       const backfill = await http('/rest/v1/rpc/sync_learning_state', {
         method: 'POST', token: accessToken, body: {
           p_state: {
             ...(needsSessionBackfill ? {sessionHistory: merged.sessionHistory} : {}),
-            ...(needsProgressBackfill ? {crossDeviceProgress: merged.crossDeviceProgress} : {})
+            ...(needsProgressBackfill ? {crossDeviceProgress: merged.crossDeviceProgress} : {}),
+            ...(needsStreakBackfill ? {streak: merged.streak} : {})
           }
         }
       });
