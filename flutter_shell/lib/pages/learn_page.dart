@@ -5,7 +5,9 @@ import 'grammar_page.dart';
 import 'vocabulary_page.dart';
 
 class LearnPage extends StatefulWidget {
-  const LearnPage({super.key});
+  const LearnPage({super.key, required this.userId});
+
+  final String userId;
 
   @override
   State<LearnPage> createState() => _LearnPageState();
@@ -46,10 +48,10 @@ class _LearnPageState extends State<LearnPage> {
         Expanded(
           child: IndexedStack(
             index: _section,
-            children: const [
-              CoursePage(),
-              VocabularyPage(),
-              GrammarPage(),
+            children: [
+              const CoursePage(),
+              VocabularyPage(userId: userId),
+              GrammarPage(userId: userId),
             ],
           ),
         ),
