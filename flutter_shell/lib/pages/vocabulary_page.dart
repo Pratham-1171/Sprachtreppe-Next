@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/vocabulary_word.dart';
+import '../services/learning_state_sync_service.dart';
 import '../services/vocabulary_service.dart';
 
 class VocabularyPage extends StatefulWidget {
-  const VocabularyPage({super.key});
+  const VocabularyPage({super.key, required this.userId});
+
+  final String userId;
 
   @override
   State<VocabularyPage> createState() => _VocabularyPageState();
@@ -16,16 +20,30 @@ class _VocabularyPageState extends State<VocabularyPage> {
   String _level = 'All';
   String _topic = 'All';
   String _query = '';
+  Map<String, dynamic> _learningState = <String, dynamic>{};
 
   @override
   void initState() {
     super.initState();
     _future = _service.loadWords();
+    _loadSharedProgress();
+  }
+
+  Future<void> _loadSharedProgress() async {
+    final sync = LearningStateSyncService(Supabase.instance.client, widget.userId);
+    try {
+      await sync.sync();
+    } catch (_) {
+      // Cached learning state remains available while offline.
+    }
+    final state = await sync.loadAggregateState();
+    if (mounted) setState(() => _learningState = state);
   }
 
   Future<void> _reload() async {
     setState(() => _future = _service.loadWords());
     await _future;
+    await _loadSharedProgress();
   }
 
   @override
@@ -42,6 +60,8 @@ class _VocabularyPageState extends State<VocabularyPage> {
         }
 
         final words = snapshot.data ?? const <VocabularyWord>[];
+        final rawMastery = _learningState['vocabularyMastery'];
+        final mastery = rawMastery is Map ? rawMastery : <dynamic, dynamic>{};
         final topics = <String>{'All', ...words.map((word) => word.topic)}.toList()..sort();
         final filtered = words.where((word) {
           final levelMatch = _level == 'All' || word.level == _level;
@@ -113,7 +133,13 @@ class _VocabularyPageState extends State<VocabularyPage> {
                   const SizedBox(height: 12),
                   Text('${filtered.length} matching words', style: theme.textTheme.labelLarge),
                   const SizedBox(height: 8),
-                  ...filtered.map((word) => _WordCard(word: word)),
+                  ...filtered.map((word) {
+                    final rawProgress = mastery['vocabulary:${word.number}'];
+                    final progress = rawProgress is Map
+                        ? Map<String, dynamic>.from(rawProgress)
+                        : null;
+                    return _WordCard(word: word, mastery: progress);
+                  }),
                   if (filtered.isEmpty)
                     const Card(
                       child: Padding(
@@ -132,9 +158,27 @@ class _VocabularyPageState extends State<VocabularyPage> {
 }
 
 class _WordCard extends StatelessWidget {
-  const _WordCard({required this.word});
+  const _WordCard({required this.word, this.mastery});
 
   final VocabularyWord word;
+  final Map<String, dynamic>? mastery;
+
+  String? get _masteryLabel {
+    final status = (mastery?['status'] ?? '').toString().toUpperCase();
+    switch (status) {
+      case 'MASTERED':
+        return 'Mastered';
+      case 'STRONG':
+      case 'LEARNED':
+        return 'Strong';
+      case 'LEARNING':
+        return 'Learning';
+      case 'WEAK':
+        return 'Needs practice';
+      default:
+        return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +210,30 @@ class _WordCard extends StatelessWidget {
                   Text(word.english, style: theme.textTheme.bodyLarge),
                   const SizedBox(height: 3),
                   Text(word.topic, style: theme.textTheme.bodySmall),
+                  if (_masteryLabel != null) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Chip(
+                          visualDensity: VisualDensity.compact,
+                          label: Text(_masteryLabel!),
+                          avatar: Icon(
+                            _masteryLabel == 'Mastered' || _masteryLabel == 'Strong'
+                                ? Icons.check_circle_outline
+                                : Icons.auto_stories_outlined,
+                            size: 17,
+                          ),
+                        ),
+                        Text(
+                          '${mastery?['correct'] ?? 0}/${mastery?['attempts'] ?? 0} correct',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
