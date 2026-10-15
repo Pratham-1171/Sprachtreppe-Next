@@ -244,21 +244,35 @@
     const courseState = JSON.parse(JSON.stringify(serverState));
     const flutter = courseState.flutter && typeof courseState.flutter === 'object' ? courseState.flutter : {};
     const flutterSessions = importFlutterSessions(flutter.sessions);
-    delete courseState.flutter; // do not copy Flutter's server aggregates into the legacy course state
+    delete courseState.flutter; // keep normalized native state in a stable, namespaced course field
     const serverHistory = normaliseCourseSessions(courseState.sessionHistory);
     const mergedHistory = mergeLearningStates(serverHistory, local.sessionHistory || []);
     const merged = mergeLearningStates(courseState, local);
     merged.sessionHistory = mergeLearningStates(mergedHistory, flutterSessions);
+    const nativeProgress = {
+      vocabularyMastery: flutter.vocabularyMastery && typeof flutter.vocabularyMastery === 'object' ? flutter.vocabularyMastery : {},
+      grammarCompletion: flutter.grammarCompletion && typeof flutter.grammarCompletion === 'object' ? flutter.grammarCompletion : {},
+      mistakes: flutter.mistakes && typeof flutter.mistakes === 'object' ? flutter.mistakes : {},
+      summary: flutter.summary && typeof flutter.summary === 'object' ? flutter.summary : {}
+    };
+    merged.crossDeviceProgress = mergeLearningStates(merged.crossDeviceProgress || {}, nativeProgress);
 
-    // Persist sessions imported from Flutter into the common history as well.
-    // This is only sent when the first RPC did not already include those IDs.
+    // Persist imported sessions and native learning aggregates in the shared
+    // course state. Stable session IDs + mergeLearningStates make this idempotent.
     const storedIds = new Set(serverHistory.map(session => String(session.id || '')));
     const needsSessionBackfill = flutterSessions.some(session => !storedIds.has(String(session.id)));
+    const existingNativeMirror = courseState.crossDeviceProgress || {};
+    const needsProgressBackfill = JSON.stringify(existingNativeMirror) !== JSON.stringify(merged.crossDeviceProgress);
     let finalRevision = response.data.revision || 0;
     let finalUpdatedAt = response.data.updated_at || null;
-    if (needsSessionBackfill) {
+    if (needsSessionBackfill || needsProgressBackfill) {
       const backfill = await http('/rest/v1/rpc/sync_learning_state', {
-        method: 'POST', token: accessToken, body: {p_state: {sessionHistory: merged.sessionHistory}}
+        method: 'POST', token: accessToken, body: {
+          p_state: {
+            ...(needsSessionBackfill ? {sessionHistory: merged.sessionHistory} : {}),
+            ...(needsProgressBackfill ? {crossDeviceProgress: merged.crossDeviceProgress} : {})
+          }
+        }
       });
       if (!backfill.data || !backfill.data.state || typeof backfill.data.state !== 'object') {
         throw new Error('The server did not confirm the merged study history.');
@@ -703,9 +717,20 @@
     const p = auth.profile, st = lockState();
     const roleLabel = isAdmin() ? 'Administrator' : isTeacher() ? 'Teacher' : p.approved ? 'Student · approved' : 'Student · waiting for approval';
     const fb = (sync.feedback || []).slice(0, 8);
+    const shared = S.crossDeviceProgress && typeof S.crossDeviceProgress === 'object' ? S.crossDeviceProgress : {};
+    const sharedVocab = shared.vocabularyMastery && typeof shared.vocabularyMastery === 'object' ? shared.vocabularyMastery : {};
+    const sharedGrammar = shared.grammarCompletion && typeof shared.grammarCompletion === 'object' ? shared.grammarCompletion : {};
+    const sharedMistakes = shared.mistakes && typeof shared.mistakes === 'object' ? shared.mistakes : {};
+    const sharedSummary = shared.summary && typeof shared.summary === 'object' ? shared.summary : {};
+    const sharedStrong = Object.values(sharedVocab).filter(m => m && ['MASTERED','STRONG','LEARNED'].includes(String(m.status || '').toUpperCase())).length;
+    const sharedGrammarDone = Object.values(sharedGrammar).filter(g => g && (g.completed === true || g.completed === 'true')).length;
+    const sharedMistakeCount = Object.values(sharedMistakes).reduce((sum, m) => sum + Math.max(0, Number(m && m.count) || 0), 0);
+    const sharedEvents = Math.max(0, Number(sharedSummary.eventsTotal) || 0);
+    const hasSharedLearning = sharedEvents > 0 || sharedStrong > 0 || sharedGrammarDone > 0 || sharedMistakeCount > 0;
     el.innerHTML = `<h2>Account</h2>
       <div class="card"><div><b>${E(p.full_name || p.email)}</b></div><div class="mini-muted">${E(p.email)}</div>
         <div style="margin-top:8px"><span class="sp-badge ${p.approved ? "ok" : "warn"}">${E(roleLabel)}</span></div>
+        ${hasSharedLearning ? `<div style="margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px"><b>Learning progress across your devices</b><div class="mini-muted" style="margin-top:6px">${sharedStrong} vocabulary items strong/mastered · ${sharedGrammarDone} grammar topics completed · ${sharedMistakeCount} recorded mistakes · ${sharedEvents} synced answers</div></div>` : ''}
         ${isStudent() ? `<p class="mini-muted" style="margin-top:12px;line-height:1.6">Last sent to your teacher: <b>${sync.lastOk ? fmtAgo(new Date(sync.lastOk).toISOString()) : 'not yet'}</b><br>Next sync due within: <b>${Math.ceil(st.left)} days</b> (every ${SYNC_DAYS} days)</p>
         <div class="row"><button class="btn" id="spSyncBtn">🔄 Sync now</button></div><div id="spSyncMsg" class="mt mini-muted">${sync.lastError ? E(sync.lastError === 'offline' ? 'Offline — will retry when connected.' : sync.lastError) : ''}</div>` : ''}
       </div>
