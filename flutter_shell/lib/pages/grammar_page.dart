@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/grammar_lesson.dart';
 import '../services/grammar_service.dart';
+import '../services/learning_state_sync_service.dart';
+import '../services/progress_service.dart';
 
 class GrammarPage extends StatefulWidget {
-  const GrammarPage({super.key});
+  const GrammarPage({super.key, required this.userId});
+
+  final String userId;
 
   @override
   State<GrammarPage> createState() => _GrammarPageState();
@@ -15,16 +20,89 @@ class _GrammarPageState extends State<GrammarPage> {
   late Future<List<GrammarSection>> _future;
   String _level = 'All';
   String _query = '';
+  Map<String, dynamic> _learningState = <String, dynamic>{};
 
   @override
   void initState() {
     super.initState();
     _future = _service.loadSections();
+    _loadSharedProgress();
+  }
+
+  Future<void> _loadSharedProgress() async {
+    final sync = LearningStateSyncService(Supabase.instance.client, widget.userId);
+    try {
+      await sync.sync();
+    } catch (_) {
+      // Cached state stays visible offline; queued answer events are retained.
+    }
+    final state = await sync.loadAggregateState();
+    if (mounted) setState(() => _learningState = state);
+  }
+
+  String _lessonKey(GrammarLesson lesson) => 'grammar:${lesson.level}:${lesson.title}';
+
+  bool _isCompleted(GrammarLesson lesson) {
+    final raw = _learningState['grammarCompletion'];
+    final progress = raw is Map ? raw[_lessonKey(lesson)] : null;
+    if (progress is Map && (progress['completed'] == true || progress['completed'] == 'true')) {
+      return true;
+    }
+    final rawCourse = _learningState['courseState'];
+    final course = rawCourse is Map ? rawCourse : <dynamic, dynamic>{};
+    final done = course['grammarDone'];
+    if (done is Map) {
+      return done[lesson.title] == true || done['${lesson.level}:${lesson.title}'] == true;
+    }
+    return false;
+  }
+
+  void _recordLocalResult(GrammarLesson lesson, bool correct) {
+    final key = _lessonKey(lesson);
+    final grammarRaw = _learningState['grammarCompletion'];
+    final grammar = grammarRaw is Map
+        ? Map<String, dynamic>.from(grammarRaw)
+        : <String, dynamic>{};
+    final oldRaw = grammar[key];
+    final old = oldRaw is Map ? Map<String, dynamic>.from(oldRaw) : <String, dynamic>{};
+    final previousAttempts = old['attempts'] is num ? (old['attempts'] as num).toInt() : 0;
+    final previousCorrect = old['correct'] is num ? (old['correct'] as num).toInt() : 0;
+    grammar[key] = <String, Object>{
+      ...old,
+      'attempted': true,
+      'completed': old['completed'] == true || correct,
+      'attempts': previousAttempts + 1,
+      'correct': previousCorrect + (correct ? 1 : 0),
+    };
+
+    final next = Map<String, dynamic>.from(_learningState);
+    next['grammarCompletion'] = grammar;
+    if (!correct) {
+      final mistakesRaw = _learningState['mistakes'];
+      final mistakes = mistakesRaw is Map
+          ? Map<String, dynamic>.from(mistakesRaw)
+          : <String, dynamic>{};
+      final oldMistakeRaw = mistakes[key];
+      final oldMistake = oldMistakeRaw is Map
+          ? Map<String, dynamic>.from(oldMistakeRaw)
+          : <String, dynamic>{};
+      final oldCount = oldMistake['count'] is num
+          ? (oldMistake['count'] as num).toInt()
+          : 0;
+      mistakes[key] = <String, Object>{
+        ...oldMistake,
+        'count': oldCount + 1,
+        'topic': lesson.title,
+      };
+      next['mistakes'] = mistakes;
+    }
+    setState(() => _learningState = next);
   }
 
   Future<void> _reload() async {
     setState(() => _future = _service.loadSections());
     await _future;
+    await _loadSharedProgress();
   }
 
   @override
@@ -145,6 +223,9 @@ class _GrammarPageState extends State<GrammarPage> {
                       _GrammarLessonTile(
                         key: PageStorageKey<String>('${lesson.level}-${lesson.title}'),
                         lesson: lesson,
+                        userId: widget.userId,
+                        isCompleted: _isCompleted(lesson),
+                        onAnswered: (correct) => _recordLocalResult(lesson, correct),
                       ),
                   ],
                 ],
@@ -165,9 +246,18 @@ class _VisibleSection {
 }
 
 class _GrammarLessonTile extends StatelessWidget {
-  const _GrammarLessonTile({super.key, required this.lesson});
+  const _GrammarLessonTile({
+    super.key,
+    required this.lesson,
+    required this.userId,
+    required this.isCompleted,
+    required this.onAnswered,
+  });
 
   final GrammarLesson lesson;
+  final String userId;
+  final bool isCompleted;
+  final ValueChanged<bool> onAnswered;
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +276,7 @@ class _GrammarLessonTile extends StatelessWidget {
           lesson.title,
           style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
-        subtitle: Text(lesson.explanation),
+        subtitle: Text(isCompleted ? '✓ Completed · ${lesson.explanation}' : lesson.explanation),
         children: [
           if (lesson.guide.when.isNotEmpty)
             _InfoBlock(
@@ -298,7 +388,10 @@ class _GrammarLessonTile extends StatelessWidget {
           if (lesson.exercise != null)
             _InteractiveExercise(
               key: ValueKey<String>('${lesson.level}-${lesson.title}-exercise'),
+              userId: userId,
+              lesson: lesson,
               exercise: lesson.exercise!,
+              onAnswered: onAnswered,
             ),
         ],
       ),
@@ -344,9 +437,18 @@ class _InfoBlock extends StatelessWidget {
 }
 
 class _InteractiveExercise extends StatefulWidget {
-  const _InteractiveExercise({super.key, required this.exercise});
+  const _InteractiveExercise({
+    super.key,
+    required this.userId,
+    required this.lesson,
+    required this.exercise,
+    required this.onAnswered,
+  });
 
+  final String userId;
+  final GrammarLesson lesson;
   final GrammarExercise exercise;
+  final ValueChanged<bool> onAnswered;
 
   @override
   State<_InteractiveExercise> createState() => _InteractiveExerciseState();
@@ -376,7 +478,32 @@ class _InteractiveExerciseState extends State<_InteractiveExercise> {
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: answered ? null : () => setState(() => _selectedIndex = index),
+                  onPressed: answered
+                    ? null
+                    : () {
+                        final correct = index == exercise.correctIndex;
+                        setState(() => _selectedIndex = index);
+                        widget.onAnswered(correct);
+                        LearningStateSyncService(
+                          Supabase.instance.client,
+                          widget.userId,
+                        ).recordAnswer(
+                          mode: 'Grammar',
+                          level: widget.lesson.level,
+                          topic: widget.lesson.title,
+                          prompt: exercise.question,
+                          answer: exercise.options[index],
+                          expected: exercise.options[exercise.correctIndex],
+                          correct: correct,
+                          entityId: 'grammar:${widget.lesson.level}:${widget.lesson.title}',
+                        ).catchError((Object _) {});
+                        ProgressService(widget.userId).recordSession(
+                          mode: 'Grammar quick check',
+                          level: widget.lesson.level,
+                          correct: correct ? 1 : 0,
+                          total: 1,
+                        ).catchError((Object _) {});
+                      },
                   style: OutlinedButton.styleFrom(
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
