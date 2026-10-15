@@ -197,9 +197,7 @@ class LearningStateSyncService {
     if (acknowledgedIds.isEmpty) return;
     await _withQueueLock(() async {
       final current = await _readEvents(prefs);
-      final remaining = current.where(
-        (event) => !acknowledgedIds.contains(event['id']?.toString() ?? ''),
-      ).toList()..sort(_compareEvents);
+      final remaining = withoutAcknowledgedEvents(current, acknowledgedIds);
       final persisted = await prefs.setString(_eventsKey, jsonEncode(remaining));
       if (!persisted) {
         // Keep the original queue if local storage refuses the update. Retrying
@@ -207,6 +205,18 @@ class LearningStateSyncService {
         throw StateError('Could not acknowledge synced answers in local storage.');
       }
     });
+  }
+
+  /// Pure ID-based acknowledgement: only server-confirmed events are removed.
+  /// New events added while a request is in flight remain in the returned queue.
+  static List<Map<String, dynamic>> withoutAcknowledgedEvents(
+    List<Map<String, dynamic>> events,
+    Set<String> acknowledgedIds,
+  ) {
+    final remaining = events.where(
+      (event) => !acknowledgedIds.contains(event['id']?.toString() ?? ''),
+    ).toList();
+    return _deduplicateEvents(remaining)..sort(_compareEvents);
   }
 
   Future<T> _withQueueLock<T>(Future<T> Function() operation) async {
@@ -228,10 +238,14 @@ class LearningStateSyncService {
     if (encoded == null || encoded.isEmpty) return <Map<String, dynamic>>[];
     try {
       final decoded = jsonDecode(encoded);
-      if (decoded is! List) return <Map<String, dynamic>>[];
+      if (decoded is! List) {
+        throw StateError('Saved offline answer queue is not a list; it was not cleared.');
+      }
       return _deduplicateEvents(decoded.whereType<Map>().map(
         (item) => Map<String, dynamic>.from(item),
       ).toList());
+    } on StateError {
+      rethrow;
     } catch (_) {
       // Never interpret an unreadable offline queue as empty and overwrite it.
       throw StateError('Saved offline answer queue is unreadable; it was not cleared.');
