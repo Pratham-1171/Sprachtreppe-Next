@@ -118,6 +118,13 @@ test('browser answer events are shared and idempotent across devices', async () 
   await second.window.SP_AUTH.syncLearningAnswerEvents(secondAuth.access_token);
   assert.equal(server.learningAnswerEvents.get(student.id).size, 3);
   assert.equal(server.learningStates.get(student.id).flutter.summary.eventsTotal, 3);
+
+  await second.window.SP_AUTH.syncLearningState(secondAuth.access_token);
+  const shared = server.learningStates.get(student.id).crossDeviceProgress;
+  assert.ok(shared, 'the browser state should retain the server-owned native learning aggregates');
+  assert.equal(shared.summary.eventsTotal, 3);
+  assert.equal(shared.vocabularyMastery.haus.attempts, 1);
+  assert.equal(shared.grammarCompletion['weil-word-order'].completed, true);
 });
 
 test('offline browser answers remain queued until the event RPC succeeds', async () => {
