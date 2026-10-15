@@ -1,0 +1,48 @@
+name: Provision Sprachtreppe Next Supabase
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [flutter-shell]
+    paths:
+      - 'backend/schema.sql'
+      - 'backend/migrations/**'
+      - '.github/workflows/supabase-next-migrate.yml'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Prepare migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf supabase
+          supabase init
+          rm -rf supabase/migrations
+          mkdir -p supabase/migrations
+          cp backend/schema.sql supabase/migrations/20261015000000_sprachtreppe_base_schema.sql
+          n=1
+          for file in backend/migrations/*.sql; do
+            printf -v stamp '20261015%06d' "$n"
+            base="$(basename "$file" .sql)"
+            cp "$file" "supabase/migrations/${stamp}_${base}.sql"
+            n=$((n+1))
+          done
+
+      - name: Link to sprachtreppe-next
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase link --project-ref nkmiziinazafpbsavyxg
+
+      - name: Push database migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase db push --linked --include-all
