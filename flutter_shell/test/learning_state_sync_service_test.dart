@@ -75,6 +75,40 @@ void main() {
     });
   });
 
+
+  test('server acknowledgement removes only confirmed offline answers', () {
+    final pending = <Map<String, dynamic>>[
+      <String, dynamic>{'id': 'answer-a', 'timestamp': '2026-10-15T08:00:00Z'},
+      <String, dynamic>{'id': 'answer-b', 'timestamp': '2026-10-15T08:01:00Z'},
+      <String, dynamic>{'id': 'answer-c', 'timestamp': '2026-10-15T08:02:00Z'},
+    ];
+
+    final remaining = LearningStateSyncService.withoutAcknowledgedEvents(
+      pending,
+      <String>{'answer-a', 'answer-b'},
+    );
+
+    expect(remaining.map((event) => event['id']).toList(), ['answer-c']);
+    expect(pending, hasLength(3), reason: 'acknowledgement must not mutate the original queue');
+  });
+
+  test('an empty or partial acknowledgement never clears unconfirmed work', () {
+    final pending = <Map<String, dynamic>>[
+      <String, dynamic>{'id': 'answer-a'},
+      <String, dynamic>{'id': 'answer-b'},
+    ];
+
+    expect(
+      LearningStateSyncService.withoutAcknowledgedEvents(pending, <String>{}),
+      hasLength(2),
+    );
+    expect(
+      LearningStateSyncService.withoutAcknowledgedEvents(pending, <String>{'answer-a'})
+          .map((event) => event['id']).toList(),
+      ['answer-b'],
+    );
+  });
+
   test('legacy study sessions acquire a deterministic ID for safe import', () {
     final legacy = <String, dynamic>{
       'completedAt': '2026-10-15T08:00:00Z',
