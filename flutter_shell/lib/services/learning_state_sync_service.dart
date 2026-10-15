@@ -18,9 +18,11 @@ class LearningStateSyncService {
   final ProgressService _progress;
 
   static final Map<String, Timer> _syncTimers = <String, Timer>{};
+  static final Map<String, Future<void>> _queueTails = <String, Future<void>>{};
   static final Random _random = Random();
 
   String get _eventsKey => 'sprachtreppe_learning_answer_events_v1_$userId';
+  String get _recentEventsKey => 'sprachtreppe_learning_recent_answer_events_v1_$userId';
   String get _aggregateKey => 'sprachtreppe_learning_aggregates_v1_$userId';
   static const int maxLocalEvents = 5000;
   static const int maxEventsPerSync = 500;
@@ -36,8 +38,6 @@ class LearningStateSyncService {
     required String expected,
     required bool correct,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final events = await _readEvents(prefs);
     final micros = DateTime.now().microsecondsSinceEpoch;
     final event = <String, Object>{
       'id': 'answer-' + micros.toString() + '-' + _random.nextInt(1 << 32).toRadixString(16),
@@ -53,11 +53,15 @@ class LearningStateSyncService {
       'expected': expected.length > 120 ? expected.substring(0, 120) : expected,
       'correct': correct,
     };
-    events.add(event);
-    final saved = _deduplicateEvents(events)..sort(_compareEvents);
-    await prefs.setString(_eventsKey, jsonEncode(saved.length > maxLocalEvents
-        ? saved.sublist(saved.length - maxLocalEvents)
-        : saved));
+    await _withQueueLock(() async {
+      final prefs = await SharedPreferences.getInstance();
+      final pending = await _readEvents(prefs);
+      pending.add(event);
+      final saved = _deduplicateEvents(pending)..sort(_compareEvents);
+      await prefs.setString(_eventsKey, jsonEncode(saved.length > maxLocalEvents
+          ? saved.sublist(saved.length - maxLocalEvents)
+          : saved));
+    });
     _scheduleSync();
   }
 
@@ -69,20 +73,14 @@ class LearningStateSyncService {
       throw StateError('Sign in again before synchronizing your learning progress.');
     }
     final prefs = await SharedPreferences.getInstance();
-    // Keep the full offline queue until every batch and the final pull succeed.
-    // Replaying already-uploaded IDs is safe because the server merge is idempotent.
+    // This key contains only unconfirmed offline work; do not truncate it to one batch.
     final pendingEvents = _deduplicateEvents(await _readEvents(prefs))..sort(_compareEvents);
     final localSessions = await _progress.loadSessions();
 
     for (final batch in batchEvents(pendingEvents)) {
-      await _client.rpc(
-        'sync_learning_answer_events',
-        params: {'p_events': batch},
-      );
+      await _client.rpc('sync_learning_answer_events', params: {'p_events': batch});
     }
 
-    // This final round-trip imports remote sessions and all server-computed
-    // aggregates. Answer history itself was delivered in individually acknowledged batches.
     final raw = await _client.rpc(
       'sync_learning_state',
       params: {
@@ -103,27 +101,32 @@ class LearningStateSyncService {
         ? Map<String, dynamic>.from(rawFlutter)
         : <String, dynamic>{};
 
-    final mergedEvents = mergeEvents(cloudFlutter['answerEvents'], pendingEvents);
-    await _progress.mergeSessions(
-      _readSessionsFromState(cloudFlutter['sessions']),
-    );
+    final recentServerEvents = mergeEvents(cloudFlutter['answerEvents'], <Map<String, dynamic>>[]);
+    final serverEventIds = recentServerEvents.map((event) => event['id']?.toString() ?? '').toSet();
+    await _progress.mergeSessions(_readSessionsFromState(cloudFlutter['sessions']));
 
-    // Only compact the on-device event queue after all batches have been accepted
-    // and the final pull succeeded. If anything fails above, the original queue remains.
-    await prefs.setString(_eventsKey, jsonEncode(mergedEvents));
-    await prefs.setString(_aggregateKey, jsonEncode(<String, Object>{
-      'vocabularyMastery': cloudFlutter['vocabularyMastery'] is Map
-          ? cloudFlutter['vocabularyMastery'] : <String, Object>{},
-      'grammarCompletion': cloudFlutter['grammarCompletion'] is Map
-          ? cloudFlutter['grammarCompletion'] : <String, Object>{},
-      'mistakes': cloudFlutter['mistakes'] is Map
-          ? cloudFlutter['mistakes'] : <String, Object>{},
-      'summary': cloudFlutter['summary'] is Map
-          ? cloudFlutter['summary'] : <String, Object>{},
-      'revision': response['revision'] is num ? response['revision'] : 0,
-      'updatedAt': response['updated_at']?.toString() ?? '',
-    }));
-    // mergeSessions has already written the union locally for dashboard/streak calculations.
+    // Serialize the brief queue update with recordAnswer(). New answers created
+    // during the requests stay queued unless the final server snapshot confirms them.
+    await _withQueueLock(() async {
+      final currentPending = await _readEvents(prefs);
+      final stillPending = _deduplicateEvents(currentPending.where(
+        (event) => !serverEventIds.contains(event['id']?.toString() ?? ''),
+      ).toList())..sort(_compareEvents);
+      await prefs.setString(_eventsKey, jsonEncode(stillPending));
+      await prefs.setString(_recentEventsKey, jsonEncode(recentServerEvents));
+      await prefs.setString(_aggregateKey, jsonEncode(<String, Object>{
+        'vocabularyMastery': cloudFlutter['vocabularyMastery'] is Map
+            ? cloudFlutter['vocabularyMastery'] : <String, Object>{},
+        'grammarCompletion': cloudFlutter['grammarCompletion'] is Map
+            ? cloudFlutter['grammarCompletion'] : <String, Object>{},
+        'mistakes': cloudFlutter['mistakes'] is Map
+            ? cloudFlutter['mistakes'] : <String, Object>{},
+        'summary': cloudFlutter['summary'] is Map
+            ? cloudFlutter['summary'] : <String, Object>{},
+        'revision': response['revision'] is num ? response['revision'] : 0,
+        'updatedAt': response['updated_at']?.toString() ?? '',
+      }));
+    });
   }
 
   /// Chunks the complete local queue rather than truncating it to one API batch.
@@ -144,9 +147,34 @@ class LearningStateSyncService {
     _syncTimers[userId] = Timer(const Duration(seconds: 3), () {
       _syncTimers.remove(userId);
       sync().catchError((Object _) {
-        // Keep the queue on device; launch/resume/manual sync retries it.
+        if (_client.auth.currentUser?.id == userId) _scheduleRetry();
       });
     });
+  }
+
+  void _scheduleRetry() {
+    _syncTimers.remove(userId)?.cancel();
+    _syncTimers[userId] = Timer(const Duration(seconds: 30), () {
+      _syncTimers.remove(userId);
+      if (_client.auth.currentUser?.id != userId) return;
+      sync().catchError((Object _) {
+        if (_client.auth.currentUser?.id == userId) _scheduleRetry();
+      });
+    });
+  }
+
+  Future<T> _withQueueLock<T>(Future<T> Function() operation) async {
+    final previous = _queueTails[userId] ?? Future<void>.value();
+    final completer = Completer<void>();
+    final ownTail = completer.future;
+    _queueTails[userId] = ownTail;
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      completer.complete();
+      if (identical(_queueTails[userId], ownTail)) _queueTails.remove(userId);
+    }
   }
 
   Future<List<Map<String, dynamic>>> _readEvents(SharedPreferences prefs) async {
@@ -218,6 +246,33 @@ class LearningStateSyncService {
   static String _normaliseKey(String value) {
     final normalized = value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
     return normalized.length > 160 ? normalized.substring(0, 160) : normalized;
+  }
+
+  /// Recent answer history imported from another device, available offline.
+  Future<List<Map<String, dynamic>>> loadRecentEvents() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = prefs.getString(_recentEventsKey);
+    if (encoded == null || encoded.isEmpty) return <Map<String, dynamic>>[];
+    try {
+      final decoded = jsonDecode(encoded);
+      if (decoded is! List) return <Map<String, dynamic>>[];
+      return decoded.whereType<Map>().map((event) => Map<String, dynamic>.from(event)).toList();
+    } catch (_) {
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  /// Read the downloaded materialized mastery and mistakes even while offline.
+  Future<Map<String, dynamic>> loadAggregateState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = prefs.getString(_aggregateKey);
+    if (encoded == null || encoded.isEmpty) return <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(encoded);
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
   }
 
   static Map<String, Object> _buildFlutterState(
