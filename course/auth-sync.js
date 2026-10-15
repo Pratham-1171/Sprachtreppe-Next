@@ -63,7 +63,9 @@
     if (Array.isArray(remote) && Array.isArray(local)) {
       const result = [], seen = new Set();
       for (const item of remote.concat(local)) {
-        const id = item && typeof item === 'object' && item.id != null ? 'id:' + item.id : JSON.stringify(item);
+        const stable = value => Array.isArray(value) ? '[' + value.map(stable).join(',') + ']' :
+          value && typeof value === 'object' ? '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stable(value[key])).join(',') + '}' : JSON.stringify(value);
+        const id = item && typeof item === 'object' && item.id != null ? 'id:' + item.id : stable(item);
         if (!seen.has(id)) { seen.add(id); result.push(item); }
       }
       return result;
