@@ -66,7 +66,7 @@ begin
         else
           merged := jsonb_set(
             merged, '{current}',
-            to_jsonb(greatest((p_existing ->> 'current')::numeric, (p_incoming ->> 'current')::numeric),
+            to_jsonb(greatest((p_existing ->> 'current')::numeric, (p_incoming ->> 'current')::numeric)),
             false
           );
         end if;
