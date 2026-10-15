@@ -19,12 +19,12 @@ class LearningStateSyncService {
 
   static final Map<String, Timer> _syncTimers = <String, Timer>{};
   static final Map<String, Future<void>> _queueTails = <String, Future<void>>{};
+  static final Map<String, Future<void>> _syncFlights = <String, Future<void>>{};
   static final Random _random = Random();
 
   String get _eventsKey => 'sprachtreppe_learning_answer_events_v1_$userId';
   String get _recentEventsKey => 'sprachtreppe_learning_recent_answer_events_v1_$userId';
   String get _aggregateKey => 'sprachtreppe_learning_aggregates_v1_$userId';
-  static const int maxLocalEvents = 5000;
   static const int maxEventsPerSync = 500;
 
   /// Save an immutable answer event locally first, then debounce a background
@@ -58,16 +58,28 @@ class LearningStateSyncService {
       final pending = await _readEvents(prefs);
       pending.add(event);
       final saved = _deduplicateEvents(pending)..sort(_compareEvents);
-      await prefs.setString(_eventsKey, jsonEncode(saved.length > maxLocalEvents
-          ? saved.sublist(saved.length - maxLocalEvents)
-          : saved));
+      // Do not evict old offline answers to stay under an arbitrary event cap.
+      // A storage failure must be visible to the caller rather than discarding
+      // previously queued work.
+      final persisted = await prefs.setString(_eventsKey, jsonEncode(saved));
+      if (!persisted) throw StateError('Could not persist the offline answer queue.');
     });
     _scheduleSync();
   }
 
   /// Merge remote events and sessions; push the merged view back so counters
   /// derived from two offline devices become consistent rather than overwritten.
-  Future<void> sync() async {
+  Future<void> sync() {
+    final ongoing = _syncFlights[userId];
+    if (ongoing != null) return ongoing;
+    final task = _performSync();
+    _syncFlights[userId] = task;
+    return task.whenComplete(() {
+      if (identical(_syncFlights[userId], task)) _syncFlights.remove(userId);
+    });
+  }
+
+  Future<void> _performSync() async {
     final user = _client.auth.currentUser;
     if (user == null || user.id != userId) {
       throw StateError('Sign in again before synchronizing your learning progress.');
@@ -78,7 +90,22 @@ class LearningStateSyncService {
     final localSessions = await _progress.loadSessions();
 
     for (final batch in batchEvents(pendingEvents)) {
-      await _client.rpc('sync_learning_answer_events', params: {'p_events': batch});
+      final upload = await _client.rpc(
+        'sync_learning_answer_events',
+        params: {'p_events': batch},
+      );
+      // The server returns accepted_ids, including IDs it had already seen.
+      // A successful RPC is also safe to acknowledge on older compatible servers
+      // because inserts are unique by (student_id, event_id).
+      final response = upload is Map
+          ? Map<String, dynamic>.from(upload)
+          : <String, dynamic>{};
+      final rawAccepted = response['accepted_ids'];
+      final acknowledged = rawAccepted is List
+          ? rawAccepted.map((id) => id.toString()).toSet()
+          : batch.map((event) => event['id']?.toString() ?? '')
+              .where((id) => id.isNotEmpty).toSet();
+      await _acknowledgeEvents(prefs, acknowledged);
     }
 
     final raw = await _client.rpc(
@@ -101,26 +128,19 @@ class LearningStateSyncService {
         ? Map<String, dynamic>.from(rawFlutter)
         : <String, dynamic>{};
 
-    final serverEventIds = <String>{};
-    final rawServerEvents = cloudFlutter['answerEvents'];
-    if (rawServerEvents is List) {
-      for (final item in rawServerEvents.whereType<Map>()) {
-        final id = item['id']?.toString() ?? '';
-        if (id.isNotEmpty) serverEventIds.add(id);
-      }
-    }
-    final recentServerEvents = mergeEvents(rawServerEvents, <Map<String, dynamic>>[]);
+    // The durable event ledger is returned separately from the compact state
+    // document; don't depend on the latest-500 event window to acknowledge work.
+    final rawServerEvents = response['answer_events'];
     await _progress.mergeSessions(_readSessionsFromState(cloudFlutter['sessions']));
 
-    // Serialize the brief queue update with recordAnswer(). New answers created
-    // during the requests stay queued unless the final server snapshot confirms them.
+    // Serialize local cache writes with recordAnswer(). Previously acknowledged
+    // batches were removed by ID immediately after their RPC succeeded; any new
+    // answers created while this sync was in flight remain queued untouched.
     await _withQueueLock(() async {
       final currentPending = await _readEvents(prefs);
-      final stillPending = _deduplicateEvents(currentPending.where(
-        (event) => !serverEventIds.contains(event['id']?.toString() ?? ''),
-      ).toList())..sort(_compareEvents);
-      await prefs.setString(_eventsKey, jsonEncode(stillPending));
-      await prefs.setString(_recentEventsKey, jsonEncode(recentServerEvents));
+      final recentServerEvents = mergeEvents(rawServerEvents, currentPending);
+      final savedRecent = await prefs.setString(_recentEventsKey, jsonEncode(recentServerEvents));
+      if (!savedRecent) throw StateError('Could not cache the latest synced answer history.');
       await prefs.setString(_aggregateKey, jsonEncode(<String, Object>{
         'vocabularyMastery': cloudFlutter['vocabularyMastery'] is Map
             ? cloudFlutter['vocabularyMastery'] : <String, Object>{},
@@ -170,6 +190,25 @@ class LearningStateSyncService {
     });
   }
 
+  Future<void> _acknowledgeEvents(
+    SharedPreferences prefs,
+    Set<String> acknowledgedIds,
+  ) async {
+    if (acknowledgedIds.isEmpty) return;
+    await _withQueueLock(() async {
+      final current = await _readEvents(prefs);
+      final remaining = current.where(
+        (event) => !acknowledgedIds.contains(event['id']?.toString() ?? ''),
+      ).toList()..sort(_compareEvents);
+      final persisted = await prefs.setString(_eventsKey, jsonEncode(remaining));
+      if (!persisted) {
+        // Keep the original queue if local storage refuses the update. Retrying
+        // the same IDs later is harmless because the database has a unique key.
+        throw StateError('Could not acknowledge synced answers in local storage.');
+      }
+    });
+  }
+
   Future<T> _withQueueLock<T>(Future<T> Function() operation) async {
     final previous = _queueTails[userId] ?? Future<void>.value();
     final completer = Completer<void>();
@@ -194,7 +233,8 @@ class LearningStateSyncService {
         (item) => Map<String, dynamic>.from(item),
       ).toList());
     } catch (_) {
-      return <Map<String, dynamic>>[];
+      // Never interpret an unreadable offline queue as empty and overwrite it.
+      throw StateError('Saved offline answer queue is unreadable; it was not cleared.');
     }
   }
 
