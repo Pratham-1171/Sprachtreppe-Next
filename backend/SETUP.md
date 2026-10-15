@@ -4,21 +4,15 @@ Supabase hosts authentication, PostgreSQL, RLS and server-side functions. GitHub
 
 ## 1. Apply the database schema
 
-In **Supabase → SQL Editor**, run `backend/schema.sql` first.
+Use the supported **GitHub Actions → Provision Sprachtreppe Next Supabase → Run workflow** path. Add the repository secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` first.
 
-Then run these migrations in this exact order:
+The workflow builds the canonical, timestamp-matched migration chain and runs `supabase db push`. It intentionally excludes the obsolete historical LMS migrations `001`–`012`, whose earlier schema uses incompatible class IDs. **Do not run `001_lms_phase1.sql`–`012` directly on Sprachtreppe Next, and do not reinitialize or reset the production database.** For an already provisioned database, the migration ledger ensures only unapplied canonical migrations run.
 
-1. `backend/migrations/001_lms_phase1.sql` — teacher role, classes, class teachers, members and invitation codes.
-2. `backend/migrations/002_lms_phase2.sql` — announcements and in-app notifications.
-3. `backend/migrations/003_lms_phase3.sql` — assignments, student submissions, grading and feedback.
-4. `backend/migrations/004_lms_phase4_5_6.sql` — study sessions, attendance/activity analytics, audit log, email queue, roster controls, dashboards, retention cleanup and automatic assignment/grade notifications.
-5. `backend/migrations/005_lms_scheduled_jobs.sql` — reminder/report queueing functions.
-
-**Do not run the files out of order.** They are additive and preserve the existing progress/submission system.
+The chain includes the base schema, OTP signup, notification security, canonical LMS, submission guardrails, full personal learning-state sync, answer-event aggregation and the durable idempotent answer-event ledger. See `.github/workflows/supabase-next-migrate.yml` for the exact version mapping.
 
 ### Required extension
 
-Phase 1 uses `extensions.digest()` for hashed class invitation codes. If the migration reports that `digest` does not exist, open **Database → Extensions**, enable **pgcrypto**, then rerun Phase 1.
+If the base migration reports that `digest` does not exist, open **Database → Extensions**, enable **pgcrypto**, then rerun the workflow.
 
 ## 2. Create/promote the administrator
 
@@ -174,4 +168,12 @@ The anon/publishable key is expected to be present in a client app; RLS and serv
 
 ## Migration workflow safety
 
-The repository workflow `.github/workflows/supabase-next-migrate.yml` is manual-only and maps the seven known Next migration ledger versions explicitly. It does **not** replay historical `001`–`012` SQL, and it does not delete/reinitialize the entire Supabase folder. To run that workflow, configure repository secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD`. New schema changes must be added as a new, immutable migration and explicitly mapped in the workflow; do not edit an already-applied migration expecting it to rerun.
+The repository workflow `.github/workflows/supabase-next-migrate.yml` is manual-only and maps the eleven known Next migration ledger versions explicitly. It does **not** replay historical `001`–`012` SQL, and it does not delete/reinitialize the entire Supabase folder. To run that workflow, configure repository secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD`. New schema changes must be added as a new, immutable migration and explicitly mapped in the workflow; do not edit an already-applied migration expecting it to rerun.
+
+## 11. Personal progress across devices
+
+Approved students have a server-owned `learning_state` snapshot plus an append-only `learning_answer_events` ledger. A successful answer is queued locally with a stable ID before network work; each retry reuses that ID, and the database uniqueness constraint prevents duplicate answers when two devices reconnect or a response is lost. The server stores vocabulary mastery, grammar completion, mistakes and aggregate answer totals separately from the event log; study sessions are merged by stable session IDs.
+
+The browser course merges personal state during sign-in and uploads newly scored answers. Flutter uploads local answer batches, removes only server-acknowledged event IDs from its offline queue, downloads the compact aggregate state and merges study sessions. Unsent events remain local on connection failure. The dashboard displays the latest server-synced learning aggregates and falls back to its device cache while offline.
+
+Old summary-only progress from before event logging cannot be reconstructed into individual answer events; it is preserved as legacy course state. Test the web and Flutter flows with two devices (including an offline answer on each) before a classroom rollout.
