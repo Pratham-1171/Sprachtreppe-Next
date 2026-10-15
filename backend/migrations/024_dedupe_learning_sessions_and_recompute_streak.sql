@@ -124,7 +124,6 @@ begin
   if existing_type = 'array' and incoming_type = 'array' then
     -- Stable-ID records (notably study sessions) represent one logical item
     -- even when two offline devices have different snapshots of that record.
-    -- Merge those objects recursively by ID instead of counting both versions.
     merged := '[]'::jsonb;
     for item in
       select value from jsonb_array_elements(p_existing || p_incoming) as rows(value)
@@ -287,96 +286,12 @@ begin
   ) mistakes;
 
   select count(*),
-    coalesce(sum(case when (session.value ->> 'total') ~ '^[0-9]+
-
-  begin
-    v_best_streak := greatest(coalesce((v_flutter #>> '{summary,bestStreak}')::bigint, 0), 0);
-    v_current_streak := greatest(coalesce((v_flutter #>> '{summary,currentStreak}')::bigint, 0), 0);
-  exception when others then
-    v_best_streak := 0;
-    v_current_streak := 0;
-  end;
-
-  v_summary := coalesce(v_flutter -> 'summary', '{}'::jsonb) || jsonb_build_object(
-    'totalSessions', v_session_count,
-    'totalQuestions', v_total_questions,
-    'correctAnswers', v_correct_answers,
-    'accuracyPercent', case when v_total_questions = 0 then 0 else round(100.0 * v_correct_answers / v_total_questions) end,
-    'eventsTotal', v_event_count,
-    'bestStreak', v_best_streak,
-    'currentStreak', v_current_streak
-  );
-
-  v_flutter := jsonb_set(v_flutter, '{vocabularyMastery}', coalesce(v_vocabulary, '{}'::jsonb), true);
-  v_flutter := jsonb_set(v_flutter, '{grammarCompletion}', coalesce(v_grammar, '{}'::jsonb), true);
-  v_flutter := jsonb_set(v_flutter, '{mistakes}', coalesce(v_mistakes, '{}'::jsonb), true);
-  v_flutter := jsonb_set(v_flutter, '{summary}', v_summary, true);
-  v_flutter := v_flutter #- '{answerEvents}';
-  v_state := jsonb_set(v_state, '{flutter}', v_flutter, true);
-  update public.learning_state set state = v_state where user_id = p_user_id;
-end;
-$function$;
+    coalesce(sum(case when (session.value ->> 'total') ~ '^[0-9]+$'
       then greatest((session.value ->> 'total')::bigint, 0) else 0 end), 0),
     coalesce(sum(least(
-      case when (session.value ->> 'correct') ~ '^[0-9]+
-
-  begin
-    v_best_streak := greatest(coalesce((v_flutter #>> '{summary,bestStreak}')::bigint, 0), 0);
-    v_current_streak := greatest(coalesce((v_flutter #>> '{summary,currentStreak}')::bigint, 0), 0);
-  exception when others then
-    v_best_streak := 0;
-    v_current_streak := 0;
-  end;
-
-  v_summary := coalesce(v_flutter -> 'summary', '{}'::jsonb) || jsonb_build_object(
-    'totalSessions', v_session_count,
-    'totalQuestions', v_total_questions,
-    'correctAnswers', v_correct_answers,
-    'accuracyPercent', case when v_total_questions = 0 then 0 else round(100.0 * v_correct_answers / v_total_questions) end,
-    'eventsTotal', v_event_count,
-    'bestStreak', v_best_streak,
-    'currentStreak', v_current_streak
-  );
-
-  v_flutter := jsonb_set(v_flutter, '{vocabularyMastery}', coalesce(v_vocabulary, '{}'::jsonb), true);
-  v_flutter := jsonb_set(v_flutter, '{grammarCompletion}', coalesce(v_grammar, '{}'::jsonb), true);
-  v_flutter := jsonb_set(v_flutter, '{mistakes}', coalesce(v_mistakes, '{}'::jsonb), true);
-  v_flutter := jsonb_set(v_flutter, '{summary}', v_summary, true);
-  v_flutter := v_flutter #- '{answerEvents}';
-  v_state := jsonb_set(v_state, '{flutter}', v_flutter, true);
-  update public.learning_state set state = v_state where user_id = p_user_id;
-end;
-$function$;
+      case when (session.value ->> 'correct') ~ '^[0-9]+$'
         then greatest((session.value ->> 'correct')::bigint, 0) else 0 end,
-      case when (session.value ->> 'total') ~ '^[0-9]+
-
-  begin
-    v_best_streak := greatest(coalesce((v_flutter #>> '{summary,bestStreak}')::bigint, 0), 0);
-    v_current_streak := greatest(coalesce((v_flutter #>> '{summary,currentStreak}')::bigint, 0), 0);
-  exception when others then
-    v_best_streak := 0;
-    v_current_streak := 0;
-  end;
-
-  v_summary := coalesce(v_flutter -> 'summary', '{}'::jsonb) || jsonb_build_object(
-    'totalSessions', v_session_count,
-    'totalQuestions', v_total_questions,
-    'correctAnswers', v_correct_answers,
-    'accuracyPercent', case when v_total_questions = 0 then 0 else round(100.0 * v_correct_answers / v_total_questions) end,
-    'eventsTotal', v_event_count,
-    'bestStreak', v_best_streak,
-    'currentStreak', v_current_streak
-  );
-
-  v_flutter := jsonb_set(v_flutter, '{vocabularyMastery}', coalesce(v_vocabulary, '{}'::jsonb), true);
-  v_flutter := jsonb_set(v_flutter, '{grammarCompletion}', coalesce(v_grammar, '{}'::jsonb), true);
-  v_flutter := jsonb_set(v_flutter, '{mistakes}', coalesce(v_mistakes, '{}'::jsonb), true);
-  v_flutter := jsonb_set(v_flutter, '{summary}', v_summary, true);
-  v_flutter := v_flutter #- '{answerEvents}';
-  v_state := jsonb_set(v_state, '{flutter}', v_flutter, true);
-  update public.learning_state set state = v_state where user_id = p_user_id;
-end;
-$function$;
+      case when (session.value ->> 'total') ~ '^[0-9]+$'
         then greatest((session.value ->> 'total')::bigint, 0) else 0 end
     )), 0)
   into v_session_count, v_total_questions, v_correct_answers
