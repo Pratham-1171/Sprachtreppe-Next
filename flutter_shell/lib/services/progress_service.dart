@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -150,6 +151,8 @@ class ProgressStats {
 }
 
 class ProgressService {
+  static final Map<String, Future<void>> _sessionTails = <String, Future<void>>{};
+
   ProgressService(this.userId, {SharedPreferences? preferences})
       : _preferences = preferences;
 
@@ -181,47 +184,65 @@ class ProgressService {
     DateTime? completedAt,
   }) async {
     if (total <= 0) return loadStats();
-    final preferences = await _resolvePreferences();
-    final sessions = await _readSessions(preferences);
-    sessions.insert(
-      0,
-      StudySession(
-        id: 'session-${DateTime.now().microsecondsSinceEpoch}',
-        completedAt: completedAt ?? DateTime.now(),
-        mode: mode,
-        level: level,
-        correct: correct.clamp(0, total).toInt(),
-        total: total,
-      ),
-    );
+    return _withSessionLock(() async {
+      final preferences = await _resolvePreferences();
+      final sessions = await _readSessions(preferences);
+      sessions.insert(
+        0,
+        StudySession(
+          id: 'session-' + DateTime.now().microsecondsSinceEpoch.toString(),
+          completedAt: completedAt ?? DateTime.now(),
+          mode: mode,
+          level: level,
+          correct: correct.clamp(0, total).toInt(),
+          total: total,
+        ),
+      );
 
-    const historyLimit = 500;
-    final saved = sessions.take(historyLimit).map((session) {
-      return jsonEncode(session.toJson());
-    }).toList();
-    await preferences.setStringList(_storageKey, saved);
-    return ProgressStats.fromSessions(sessions);
+      const historyLimit = 500;
+      final saved = sessions.take(historyLimit).map((session) {
+        return jsonEncode(session.toJson());
+      }).toList();
+      await preferences.setStringList(_storageKey, saved);
+      return ProgressStats.fromSessions(sessions);
+    });
   }
 
   /// Merge imported sessions with local offline sessions by their stable event ID.
   /// A session synced by two devices is persisted only once.
   Future<List<StudySession>> mergeSessions(Iterable<StudySession> incoming) async {
-    final preferences = await _resolvePreferences();
-    final all = <String, StudySession>{};
-    for (final session in await _readSessions(preferences)) {
-      all[session.stableId] = session;
+    return _withSessionLock(() async {
+      final preferences = await _resolvePreferences();
+      final all = <String, StudySession>{};
+      for (final session in await _readSessions(preferences)) {
+        all[session.stableId] = session;
+      }
+      for (final session in incoming) {
+        all.putIfAbsent(session.stableId, () => session);
+      }
+      final merged = all.values.toList()
+        ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+      final saved = merged.take(500).toList();
+      await preferences.setStringList(
+        _storageKey,
+        saved.map((session) => jsonEncode(session.toJson())).toList(),
+      );
+      return saved;
+    });
+  }
+
+  Future<T> _withSessionLock<T>(Future<T> Function() operation) async {
+    final previous = _sessionTails[userId] ?? Future<void>.value();
+    final completer = Completer<void>();
+    final ownTail = completer.future;
+    _sessionTails[userId] = ownTail;
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      completer.complete();
+      if (identical(_sessionTails[userId], ownTail)) _sessionTails.remove(userId);
     }
-    for (final session in incoming) {
-      all.putIfAbsent(session.stableId, () => session);
-    }
-    final merged = all.values.toList()
-      ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
-    final saved = merged.take(500).toList();
-    await preferences.setStringList(
-      _storageKey,
-      saved.map((session) => jsonEncode(session.toJson())).toList(),
-    );
-    return saved;
   }
 
   Future<List<StudySession>> _readSessions(
