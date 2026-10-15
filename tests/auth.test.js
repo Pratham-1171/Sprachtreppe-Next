@@ -79,10 +79,14 @@ test('student self-registration uses OTP, stays pending, and approved accounts c
   assert.ok(!$(w, '#spAuth'), 'approved student can sign in with OTP');
   w.eval('S.practiceActivity={"2026-10-10":{answers:10,correct:7}};S.writingLog=[{t:1,level:"A1",title:"x",score:80,words:30,text:"Hallo"}];STORE.save()');
   await w.SP_AUTH.syncNow(true);
-  assert.equal(s.subs.length, 1); assert.equal(s.subs[0].student_id, u.id);
-  assert.equal(s.subs[0].summary.answers_7d, 10); assert.equal(s.subs[0].summary.correct_7d, 7);
-  assert.equal(s.subs[0].payload.writing[0].text, 'Hallo');
-  assert.ok(!JSON.stringify(s.subs[0]).includes(PW));
+  // The successful login performs an initial sync in the background. Check the
+  // explicit progress snapshot rather than assuming the background sync is absent.
+  const uploaded = s.subs.filter(sub => sub.student_id === u.id && sub.summary.answers_7d === 10);
+  assert.ok(uploaded.length >= 1, 'the progress snapshot reached the server');
+  const synced = uploaded[uploaded.length - 1];
+  assert.equal(synced.summary.correct_7d, 7);
+  assert.equal(synced.payload.writing[0].text, 'Hallo');
+  assert.ok(!JSON.stringify(uploaded).includes(PW));
 });
 test('weekly rule: warning after 5 days, locked after 7, unlocked only by a successful sync', async () => {
   const s = createServer(); const u = s.addUser('c@x.org', PW, {approved: true, name: 'Clara'});
