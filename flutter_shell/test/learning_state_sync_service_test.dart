@@ -109,6 +109,41 @@ void main() {
     );
   });
 
+
+  test('web course sessions import with stable IDs for cross-device history', () {
+    final raw = <Map<String, dynamic>>[
+      <String, dynamic>{
+        'id': 'web-session:2026-10-15',
+        'date': '2026-10-15',
+        'mode': 'Quiz',
+        'level': 'A2',
+        'questions': 8,
+        'correct': 6,
+        'duration': 90,
+      },
+    ];
+    final first = LearningStateSyncService.readWebSessionsFromState(raw);
+    final second = LearningStateSyncService.readWebSessionsFromState(raw);
+
+    expect(first, hasLength(1));
+    expect(first.single.stableId, 'web-session:2026-10-15');
+    expect(first.single.stableId, second.single.stableId);
+    expect(first.single.total, 8);
+    expect(first.single.correct, 6);
+    expect(first.single.level, 'A2');
+  });
+
+  test('malformed web course history is skipped without discarding valid sessions', () {
+    final imported = LearningStateSyncService.readWebSessionsFromState(<Object>[
+      <String, Object>{'id': 'bad', 'date': 'not-a-date', 'questions': 5, 'correct': 2},
+      <String, Object>{'id': 'valid', 'date': '2026-10-15', 'questions': 4, 'correct': 3},
+    ]);
+
+    expect(imported, hasLength(1));
+    expect(imported.single.stableId, 'valid');
+    expect(imported.single.total, 4);
+  });
+
   test('legacy study sessions acquire a deterministic ID for safe import', () {
     final legacy = <String, dynamic>{
       'completedAt': '2026-10-15T08:00:00Z',
