@@ -171,3 +171,12 @@ Never expose:
 - Database passwords.
 
 The anon/publishable key is expected to be present in a client app; RLS and server-side functions are the security boundary.
+
+## 8. Flutter + web notification inbox (Sprachtreppe Next)
+
+The Next Supabase project now has a small notification schema shared by the Flutter APK and web app. Apply these two additive migrations after `backend/schema.sql` and `backend/migrations/013_student_otp_signup.sql`:
+
+- `backend/migrations/014_flutter_notification_center.sql` — creates the user-scoped notification inbox and mark-read RPC.
+- `backend/migrations/015_harden_flutter_notification_read.sql` — restricts updates to a user's own `read_at` field and keeps the RPC as SECURITY INVOKER.
+
+Do not apply the older LMS phases merely to add notifications: their notification ID/signature designs differ from the Flutter APK. The inbox exposes SELECT only for signed-in users' own rows; marking a row read is scoped to the caller by RLS and column-level privileges.
