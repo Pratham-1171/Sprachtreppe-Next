@@ -40,6 +40,7 @@ class OfflineSyncResult {
     required this.correctAnswers,
     required this.accuracyPercent,
     required this.assignmentProgressCount,
+    required this.pendingAssignmentProgressCount,
     required this.writtenSubmissionCount,
     required this.feedback,
   });
@@ -50,6 +51,7 @@ class OfflineSyncResult {
   final int correctAnswers;
   final int accuracyPercent;
   final int assignmentProgressCount;
+  final int pendingAssignmentProgressCount;
   final int writtenSubmissionCount;
   final List<SyncFeedback> feedback;
 }
@@ -163,6 +165,22 @@ class OfflineSyncService {
 
     final feedback = <SyncFeedback>[];
 
+    // Assignment progress must update assignment_progress, not only the generic
+    // weekly submission snapshot. Keep failed items queued and continue syncing
+    // general study history so one retired/unavailable task cannot lock the learner.
+    final syncedAssignmentSnapshots = <String, Map<String, Object>>{};
+    for (final entry in pendingAssignments.entries) {
+      try {
+        await _client.rpc(
+          'update_assignment_progress',
+          params: assignmentProgressRpcParams(entry.key, entry.value),
+        );
+        syncedAssignmentSnapshots[entry.key] = entry.value;
+      } catch (_) {
+        // The matching snapshot remains in local storage and will be retried later.
+      }
+    }
+
     // Send each queued written response with its own stable client ID. If one fails,
     // its queue record stays locally and the global sync timestamp is not advanced.
     for (final submission in pendingWrittenSubmissions) {
@@ -225,16 +243,19 @@ class OfflineSyncService {
     final syncedAt = DateTime.tryParse(response['server_time']?.toString() ?? '') ?? now;
     _appendFeedback(response, feedback);
 
-    // Clear only the exact assignment snapshot sent above; newer local progress stays queued.
+    // Clear only snapshots confirmed by the assignment RPC; newer or failed
+    // entries remain locally queued for a later retry.
     try {
-      await _assignmentProgress.clearSynced(pendingAssignments);
+      await _assignmentProgress.clearSynced(syncedAssignmentSnapshots);
     } catch (_) {
       // Retain the local copy if cleanup fails; server-side upserts are monotonic.
     }
 
+    var pendingAssignmentProgressCount = pendingAssignments.length;
     var snapshotAfterSync = snapshot;
     try {
       final remainingAssignments = await _assignmentProgress.loadForSync();
+      pendingAssignmentProgressCount = remainingAssignments.length;
       final remainingWrittenSubmissions = await _writtenSubmissions.loadAll();
       snapshotAfterSync = sessionSnapshot(
         sessions,
@@ -257,12 +278,37 @@ class OfflineSyncService {
       totalQuestions: stats.totalQuestions,
       correctAnswers: stats.correctAnswers,
       accuracyPercent: stats.accuracyPercent,
-      assignmentProgressCount: pendingAssignments.length,
+      assignmentProgressCount: syncedAssignmentSnapshots.length,
+      pendingAssignmentProgressCount: pendingAssignmentProgressCount,
       writtenSubmissionCount: pendingWrittenSubmissions.length,
       feedback: {
         for (final item in feedback) item.id: item,
       }.values.toList(),
     );
+  }
+
+  /// Converts one locally queued cumulative counter snapshot into the canonical
+  /// assignment RPC contract shared with the web client.
+  static Map<String, dynamic> assignmentProgressRpcParams(
+    String assignmentId,
+    Map<String, Object> snapshot,
+  ) {
+    final id = int.tryParse(assignmentId);
+    final done = _syncInt(snapshot['done']);
+    final correct = _syncInt(snapshot['ok'] ?? snapshot['correct']);
+    if (id == null || id < 1 || done < 0 || correct < 0 || correct > done) {
+      throw const FormatException('Invalid queued assignment progress.');
+    }
+    return {
+      'p_assignment': id,
+      'p_done': done,
+      'p_correct': correct,
+    };
+  }
+
+  static int _syncInt(Object? value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? -1;
   }
 
   Future<void> acknowledgeFeedback(Iterable<int> ids) async {
