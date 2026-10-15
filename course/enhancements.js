@@ -156,6 +156,29 @@ const bridgeRecordActivity = recordPracticeActivity;
 recordPracticeActivity = function (skill, correct) {
   if (!pendingHint || pendingHint.eventType !== 'mastery') hintChange('answer', skill === 'grammar' ? 'grammar' : skill === 'exam' ? 'exam' : 'quiz', skill, { skill, correct: !!correct });
   else pendingHint.payload = Object.assign({}, pendingHint.payload, { skill, correct: !!correct });
+
+  // Persist every scored answer as an immutable, idempotent event. The course
+  // snapshot is still saved locally; this queue survives offline periods and
+  // is uploaded separately so two devices' answers are added, not max-merged.
+  try {
+    const hint = pendingHint || {};
+    const mode = skill === 'grammar' || hint.entityType === 'grammar' ? 'grammar' : 'vocabulary';
+    const specificId = hint.eventType === 'mastery' ? hint.entityId : '';
+    if (window.SP_AUTH && typeof window.SP_AUTH.recordLearningAnswer === 'function') {
+      window.SP_AUTH.recordLearningAnswer({
+        mode,
+        entityType: mode,
+        entityId: specificId || String(skill || 'practice'),
+        level: S.settings && (S.settings.level || S.settings.currentLevel) || 'All',
+        topic: String((hint.payload && hint.payload.topic) || skill || 'general'),
+        prompt: specificId || String(hint.entityId || skill || 'Practice'),
+        correct: correct === true
+      });
+    }
+  } catch (e) {
+    // Local course state and its normal save path must continue even if storage
+    // is full or a browser blocks the event queue.
+  }
   return bridgeRecordActivity.apply(this, arguments);
 };
 const bridgeAddStudyTime = addStudyTime;
