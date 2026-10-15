@@ -1,13 +1,12 @@
 name: Provision Sprachtreppe Next Supabase
 
+# Deliberately manual: the production LMS is already migrated. Never replay
+# the historical UUID-based 001-012 SQL over the canonical bigint schema.
 on:
   workflow_dispatch:
-  push:
-    branches: [flutter-shell]
-    paths:
-      - 'backend/schema.sql'
-      - 'backend/migrations/**'
-      - '.github/workflows/supabase-next-migrate.yml'
+
+permissions:
+  contents: read
 
 jobs:
   migrate:
@@ -15,34 +14,68 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate migration credentials
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Add the SUPABASE_ACCESS_TOKEN repository secret."; exit 1; }
+          test -n "$SUPABASE_DB_PASSWORD" || { echo "::error::Add the SUPABASE_DB_PASSWORD repository secret."; exit 1; }
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: Prepare migrations
+      - name: Prepare only the canonical Next migration history
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf supabase
-          supabase init
-          rm -rf supabase/migrations
+          if [ ! -f supabase/config.toml ]; then
+            supabase init
+          fi
           mkdir -p supabase/migrations
-          cp backend/schema.sql supabase/migrations/20261015000000_sprachtreppe_base_schema.sql
-          n=1
-          for file in backend/migrations/*.sql; do
-            printf -v stamp '20261015%06d' "$n"
-            base="$(basename "$file" .sql)"
-            cp "$file" "supabase/migrations/${stamp}_${base}.sql"
-            n=$((n+1))
-          done
+          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -delete
+
+          # These timestamps match the applied migration ledger in
+          # sprachtreppe-next. 001-012 are historical intermediate migrations
+          # and are intentionally excluded.
+          cp backend/schema.sql supabase/migrations/20261015041323_sprachtreppe_base_schema.sql
+          cp backend/migrations/013_student_otp_signup.sql supabase/migrations/20261015041332_student_otp_signup.sql
+
+          # The production ledger contains this legacy version, but its old SQL
+          # source used incompatible UUID class IDs. The canonical migration 016
+          # below owns the actual Next LMS schema, so this compatibility marker
+          # intentionally performs no DDL.
+          cat > supabase/migrations/20261015041341_lms_phase1_teacher_roles.sql <<'SQL'
+          -- Compatibility marker for a historical production ledger entry.
+          -- Do not replay backend/migrations/001_lms_phase1.sql on Sprachtreppe Next.
+          -- The canonical bigint LMS schema is applied in 016_flutter_lms_canonical.sql.
+          select 1;
+          SQL
+
+          cp backend/migrations/014_flutter_notification_center.sql supabase/migrations/20261015050755_flutter_notification_center.sql
+          cp backend/migrations/015_harden_flutter_notification_read.sql supabase/migrations/20261015050829_harden_flutter_notification_read.sql
+          cp backend/migrations/016_flutter_lms_canonical.sql supabase/migrations/20261015073053_flutter_lms_canonical.sql
+          cp backend/migrations/017_lms_submission_guardrails.sql supabase/migrations/20261015073258_lms_submission_guardrails.sql
+          test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 7
 
       - name: Link to sprachtreppe-next
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase link --project-ref nkmiziinazafpbsavyxg
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref nkmiziinazafpbsavyxg --password "$SUPABASE_DB_PASSWORD"
 
-      - name: Push database migrations
+      - name: Inspect migration ledger
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase db push --linked --include-all
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase migration list --linked
+
+      - name: Push canonical migrations only
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push --linked --password "$SUPABASE_DB_PASSWORD" --yes
