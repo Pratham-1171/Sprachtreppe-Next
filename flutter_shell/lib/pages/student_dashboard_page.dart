@@ -284,9 +284,17 @@ class _SyncedLearningCard extends StatelessWidget {
     final totalSessions = sessionSummaryCount > courseHistoryCount ? sessionSummaryCount : courseHistoryCount;
     final rawCourseStreak = course['streak'];
     final courseStreak = rawCourseStreak is Map ? rawCourseStreak : <dynamic, dynamic>{};
+    final rawSharedStreak = state['streak'];
+    final sharedStreak = rawSharedStreak is Map ? rawSharedStreak : <dynamic, dynamic>{};
+    final currentStreak = [
+      _number(sharedStreak['current']),
+      _number(courseStreak['current']),
+      _number(summary['currentStreak']),
+    ].reduce((a, b) => a > b ? a : b);
     final bestStreak = [
       _number(summary['bestStreak']),
       _number(courseStreak['longest']),
+      _number(sharedStreak['longest']),
     ].reduce((a, b) => a > b ? a : b);
 
     return Card(
@@ -314,6 +322,7 @@ class _SyncedLearningCard extends StatelessWidget {
                 _ProgressMetric(label: 'Wrong answers', value: '$mistakeCount'),
                 _ProgressMetric(label: 'Synced answers', value: '$syncedAnswers'),
                 _ProgressMetric(label: 'Study sessions', value: '$totalSessions'),
+                _ProgressMetric(label: 'Current streak', value: '$currentStreak days'),
                 _ProgressMetric(label: 'Best streak', value: '$bestStreak days'),
               ],
             ),
