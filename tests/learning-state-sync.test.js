@@ -141,3 +141,37 @@ test('offline browser answers remain queued until the event RPC succeeds', async
   assert.equal(w.SP_AUTH.pendingLearningAnswerCount(), 0);
   assert.equal(server.learningAnswerEvents.get(student.id).size, 1);
 });
+
+test('browser pulls native Flutter study sessions and keeps them in shared history', async () => {
+  const server = createServer();
+  const student = server.addUser('native-sessions@school.org', PW, {
+    name: 'Native Session Student', role: 'student', approved: true
+  });
+  server.learningStates.set(student.id, {
+    sessionHistory: [],
+    flutter: {
+      sessions: [{
+        id: 'native-session-a',
+        completedAt: '2026-10-15T10:00:00.000Z',
+        mode: 'Grammar',
+        level: 'A2',
+        correct: 4,
+        total: 5
+      }],
+      summary: {totalSessions: 1, bestStreak: 2}
+    }
+  });
+
+  const {window: w} = boot(server);
+  await signIn(w, student.email);
+  await w.SP_AUTH.syncLearningState(w.SP_AUTH._state().auth.access_token);
+  await w.SP_AUTH.syncLearningState(w.SP_AUTH._state().auth.access_token);
+
+  const imported = w.eval("S.sessionHistory.filter(s => s.id === 'flutter-session:native-session-a')");
+  assert.equal(imported.length, 1, 'repeated sync must not duplicate a native session');
+  assert.equal(imported[0].questions, 5);
+  assert.equal(imported[0].correct, 4);
+  assert.equal(imported[0].source, 'flutter');
+  assert.ok(server.learningStates.get(student.id).sessionHistory
+    .some(s => s.id === 'flutter-session:native-session-a'));
+});
