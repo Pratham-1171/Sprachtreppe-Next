@@ -60,6 +60,31 @@
     path = path || [];
     if (remote == null) return local == null ? remote : JSON.parse(JSON.stringify(local));
     if (local == null) return JSON.parse(JSON.stringify(remote));
+    if (path[path.length - 1] === 'streak' &&
+        remote && local && typeof remote === 'object' && typeof local === 'object' &&
+        !Array.isArray(remote) && !Array.isArray(local)) {
+      const streak = {};
+      for (const key of new Set(Object.keys(remote).concat(Object.keys(local)))) {
+        if (key === 'current' && typeof remote.current === 'number' && typeof local.current === 'number') {
+          const remoteDate = Date.parse(String(remote.lastStudyDate || remote.lastDate || ''));
+          const localDate = Date.parse(String(local.lastStudyDate || local.lastDate || ''));
+          if (Number.isFinite(remoteDate) && Number.isFinite(localDate) && remoteDate !== localDate) {
+            streak.current = localDate > remoteDate ? local.current : remote.current;
+          } else {
+            streak.current = Math.max(remote.current, local.current);
+          }
+        } else if (key === 'longest' && typeof remote.longest === 'number' && typeof local.longest === 'number') {
+          streak.longest = Math.max(remote.longest, local.longest);
+        } else if (!(key in local)) {
+          streak[key] = remote[key];
+        } else if (!(key in remote)) {
+          streak[key] = local[key];
+        } else {
+          streak[key] = mergeLearningStates(remote[key], local[key], path.concat(key));
+        }
+      }
+      return streak;
+    }
     if (Array.isArray(remote) && Array.isArray(local)) {
       const result = [], seen = new Set();
       for (const item of remote.concat(local)) {
