@@ -61,13 +61,13 @@ test('a second device downloads and merges the saved course learning state on si
   });
   const first = boot(server);
   await signIn(first.window, student.email);
-  first.window.eval(\`
+  first.window.eval(`
     S.mastery['vocab-v17'] = {status: 'MASTERED', lastSeen: Date.now(), seen: 4};
     S.grammarDone['weil'] = true;
     S.mistakes['vocab-v17'] = {count: 2, topic: 'Verben', lastSeen: Date.now()};
     S.sessionHistory.push({id: 'session-from-device-a', date: '2026-10-15', questions: 5, correct: 4});
     STORE.save();
-  \`);
+  `);
   await first.window.SP_AUTH.syncNow(true);
   const stored = server.learningStates.get(student.id);
   assert.equal(stored.mastery['vocab-v17'].status, 'MASTERED');
