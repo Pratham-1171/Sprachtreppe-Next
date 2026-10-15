@@ -1,173 +1,55 @@
-# Sprachtreppe backend + LMS setup
+# Sprachtreppe Next — Supabase setup
 
-Supabase hosts authentication, PostgreSQL, RLS and server-side functions. GitHub hosts source/CI. The Android app contains only the public Supabase URL + anon/publishable key; never ship a service-role key.
+This setup is for **Sprachtreppe-Next only**: Supabase project \`sprachtreppe-next\` (\`nkmiziinazafpbsavyxg\`). Do not use the old \`sprachtreppe\` project.
 
-## 1. Apply the database schema
+## Shared backend
 
-In **Supabase → SQL Editor**, run `backend/schema.sql` first.
+The current Flutter APK and web app share one backend:
+- \`profiles\`: email-OTP accounts, role (\`student\`, \`teacher\`, \`admin\`) and administrator approval.
+- \`submissions\`: idempotent weekly progress snapshots, written responses and review/feedback.
+- \`classes\`, \`class_teachers\`, \`class_members\`, \`teacher_students\`: classrooms and authorised roster links.
+- \`assignments\`, \`assignment_progress\`, \`announcements\`, \`notifications\`, \`audit_log\`: assigned work, progress, announcements, notifications and staff audit.
+- Row-level security (RLS) and checked server RPCs are the security boundary. Client-side navigation is not authorization.
 
-Then run these migrations in this exact order:
+## Existing production project
 
-1. `backend/migrations/001_lms_phase1.sql` — teacher role, classes, class teachers, members and invitation codes.
-2. `backend/migrations/002_lms_phase2.sql` — announcements and in-app notifications.
-3. `backend/migrations/003_lms_phase3.sql` — assignments, student submissions, grading and feedback.
-4. `backend/migrations/004_lms_phase4_5_6.sql` — study sessions, attendance/activity analytics, audit log, email queue, roster controls, dashboards, retention cleanup and automatic assignment/grade notifications.
-5. `backend/migrations/005_lms_scheduled_jobs.sql` — reminder/report queueing functions.
+The production project has already received the base, OTP, notification, canonical LMS and submission-guard migrations. **Do not rerun \`backend/schema.sql\` or apply old LMS migrations to this existing project.** The Supabase migration ledger is authoritative.
 
-**Do not run the files out of order.** They are additive and preserve the existing progress/submission system.
+## Fresh database setup only
 
-### Required extension
+For a new Next environment, run \`backend/schema.sql\` first, then the following files in order:
 
-Phase 1 uses `extensions.digest()` for hashed class invitation codes. If the migration reports that `digest` does not exist, open **Database → Extensions**, enable **pgcrypto**, then rerun Phase 1.
+1. \`backend/migrations/013_student_otp_signup.sql\`
+2. \`backend/migrations/014_flutter_notification_center.sql\`
+3. \`backend/migrations/015_harden_flutter_notification_read.sql\`
+4. \`backend/migrations/016_flutter_lms_canonical.sql\`
+5. \`backend/migrations/017_lms_submission_guardrails.sql\`
 
-## 2. Create/promote the administrator
+The historical \`001\`–\`012\` files are old intermediate LMS versions. They use incompatible UUID-based class/assignment IDs or partial schemas; **do not run them for Sprachtreppe Next**. The canonical migration uses bigint class/assignment IDs to match the current APK.
 
-Create your account in **Authentication → Users → Add user** and auto-confirm it if desired.
+## OTP and administrator
 
-Then run this in SQL Editor, replacing the email:
+- Enable the Email provider in Supabase Auth.
+- Ensure the OTP email template includes \`{{ .Token }}\` so users receive the six-digit code. Configure SMTP/custom email delivery for dependable delivery.
+- New self-registered users are students and remain pending until administrator approval. Student registration must not allow selecting a role.
+- After creating the first Auth account, promote it through a trusted, one-time SQL Editor operation:
+  \`\`\`sql
+  update public.profiles set role='admin', approved=true where email='you@example.com';
+  \`\`\`
+- The app may contain the public publishable/anon key. Never embed \`service_role\`, provider secrets, database passwords or admin passwords.
 
-```sql
-update public.profiles
-set role = 'admin', approved = true
-where email = 'you@example.com';
-```
+## Supported behavior
 
-Never put the admin password in the APK, GitHub repository, JavaScript, or SQL source files.
+- Admin approval, promoting/demoting staff, creating classes, linking teachers/students, progress review and staff audit.
+- Teacher workspace for assigned classes, students, assignments and announcements.
+- Student Learn/Practice/Tasks, local-first progress, queued writing and weekly sync through \`submit_progress\`.
+- Shared notification inbox. Users may only read their own notifications; direct updates are restricted to \`read_at\`.
+- Written work and weekly sync use the existing reviewable \`submissions\` table; no separate incompatible LMS submission table is required.
 
-## 3. Authentication settings
+Optional invitation-code, attendance analytics, scheduled reminder queue and email-worker subsystems from older LMS iterations are **not part of the canonical Next schema** and are not required by the current APK/web app.
 
-Recommended:
+## Verification checklist
 
-- Email provider: enabled.
-- Minimum password length: 10+.
-- Confirm email: optional for classroom use; approval still controls database access.
-- Disable public signups after all students have registered if the app is private.
-- CAPTCHA: recommended if the registration endpoint is public.
+On a fresh environment, verify the classroom tables have RLS enabled and these RPCs exist: \`my_classroom()\`, \`my_students()\`, \`admin_students_overview()\`, \`create_class(text)\`, \`create_assignment(bigint,text,text,text,integer,timestamptz)\`, \`update_assignment_progress(bigint,integer,integer)\`, \`submit_progress(jsonb,text)\`.
 
-## 4. GitHub secrets
-
-In **GitHub → Settings → Secrets and variables → Actions**, add:
-
-- `SUPABASE_URL` = your Supabase project URL.
-- `SUPABASE_ANON_KEY` = Supabase anon/publishable key.
-
-Never use `service_role` as the app key.
-
-## 5. Scheduled maintenance and email reminders
-
-The database now creates an `email_queue`. **The database does not send email itself.** A server-side email worker/Edge Function should read pending rows and send them through your chosen provider (for example, Resend, Postmark or another transactional provider). Keep that provider API key server-side.
-
-The following functions prepare queue entries:
-
-```sql
-select public.queue_assignment_due_reminders();
-select public.queue_inactive_student_reminders();
-select public.queue_weekly_student_reports();
-```
-
-Only an admin can run them.
-
-For automatic scheduling, Supabase projects can use `pg_cron` if enabled. After enabling it, create jobs such as:
-
-```sql
-select cron.schedule(
-  'sprachtreppe-assignment-reminders',
-  '15 * * * *',
-  $$select public.queue_assignment_due_reminders();$$
-);
-
-select cron.schedule(
-  'sprachtreppe-inactive-reminders',
-  '0 9 * * *',
-  $$select public.queue_inactive_student_reminders();$$
-);
-
-select cron.schedule(
-  'sprachtreppe-weekly-reports',
-  '0 9 * * 1',
-  $$select public.queue_weekly_student_reports();$$
-);
-```
-
-For cleanup, `public.run_retention_cleanup()` is protected by admin authorization. If your pg_cron setup runs it directly, use a secure server-side mechanism rather than exposing an admin JWT in the database job. A Supabase Edge Function or trusted server job is preferred for scheduled privileged operations.
-
-## 6. Retention policy implemented
-
-Current cleanup targets are:
-
-- Notifications: 90 days.
-- Study sessions: 1 year.
-- Sent email queue rows: 90 days.
-- Audit log: 2 years.
-
-Assignment/submission records are **not automatically deleted** because they are educational records and may be needed for course history. Review this policy before adding automatic deletion.
-
-## 7. LMS capabilities now in the database
-
-### Admin
-
-- Promote/demote users.
-- Create/manage classes.
-- Add teachers.
-- View class activity.
-- Audit administrative actions.
-- Manage the notification/email infrastructure.
-
-### Teacher
-
-- Create classes.
-- Add co-teachers.
-- Generate/revoke class invitations.
-- Remove students.
-- Publish announcements.
-- Create assignments.
-- Assign course activities.
-- Set points/due dates.
-- Review submissions.
-- Grade and return feedback.
-- View class activity and assignment statistics.
-
-### Student
-
-- Join classes with an invitation code.
-- Leave classes.
-- View announcements.
-- Receive in-app notifications.
-- View assignments and due dates.
-- Submit assignments with idempotent client IDs for offline/retry safety.
-- Receive grades and teacher feedback.
-- Record study sessions for activity analytics.
-
-## 8. Offline-first rule
-
-Course content remains local. Assignment work can be stored locally by the app and submitted later. Every submission/session needs a stable client-generated ID so retrying after reconnect does not create duplicates.
-
-Do not trust the phone for authorization, grades, approval, teacher role or class membership. Those decisions remain server-side through Supabase RLS/functions.
-
-## 9. Build/test
-
-After the database migrations are applied:
-
-1. Build the Android APK through GitHub Actions.
-2. Install/update the APK.
-3. Test student login and approval.
-4. Test teacher promotion.
-5. Create a class.
-6. Generate a class code and join as a student.
-7. Publish an announcement.
-8. Create an assignment.
-9. Submit it as the student.
-10. Grade it as the teacher.
-11. Verify the student receives the grade/feedback notification.
-12. Record a study session and verify teacher dashboard statistics.
-
-## 10. Important security rule
-
-Never expose:
-
-- Supabase `service_role` key.
-- Email provider API keys.
-- Admin passwords.
-- Database passwords.
-
-The anon/publishable key is expected to be present in a client app; RLS and server-side functions are the security boundary.
+Test OTP registration/approval, teacher promotion, class creation, linking a teacher/student, publishing an assignment/announcement, syncing progress and reviewing a submission. A student must not be able to approve themselves, change roles, read another user's progress or mark another user's notification read.
