@@ -230,7 +230,7 @@
       var prog = all[String(active.assignment_id)] || {};
       var done = prog.done || active.done || 0;
       var target = prog.target_count || active.target_count || 10;
-      bar.appendChild(node('p', 'fp-muted', 'Assignment: ' + (active.title || 'Practice task') + ' · ' + Math.min(done,target) + ' / ' + target + ' questions'));
+      var activeLabel = node('p', 'fp-muted', 'Assignment: ' + (active.title || 'Practice task') + ' · ' + Math.min(done,target) + ' / ' + target + ' questions'); activeLabel.setAttribute('data-active-task-progress',''); bar.appendChild(activeLabel);
       var track = node('div', 'fp-progress'); var fill = node('i'); fill.style.width = Math.min(100, Math.round(done / Math.max(1,target) * 100)) + '%'; track.appendChild(fill); bar.appendChild(track);
       bar.appendChild(button('Back to tasks', function () { go('assignments'); }, 'btn ghost'));
     } else {
@@ -276,6 +276,8 @@
     var all = loadTaskProgress(); var k = taskId(t); var p = all[k] || {};
     all[k] = Object.assign({}, p, {assignment_id:k,title:taskTitle(t),skill:String(t.skill || t.kind || 'writing'),done:Math.max(Number(p.done)||0,1),correct:Number(p.correct)||0,target_count:taskTarget(t),submitted:true,completed:true,updated_at:new Date().toISOString()});
     storeTaskProgress(all);
+    // Mark the study state dirty so queued work is retried after connectivity returns.
+    try { if (typeof STORE !== 'undefined' && STORE && typeof STORE.save === 'function') STORE.save(); } catch (_) {}
     return queue.length;
   }
   function taskDetails(host, t, onBack) {
@@ -353,7 +355,7 @@
       host.appendChild(filters);
       var search = node('input','fp-search');
       search.type='search';search.placeholder='Search assignments…';search.value=query;search.setAttribute('aria-label','Search assignments');
-      search.addEventListener('input',function(){activeTaskQuery=search.value;query=activeTaskQuery;render(rows,errorText);});
+      search.addEventListener('input',function(){var cursor=search.selectionStart;activeTaskQuery=search.value;query=activeTaskQuery;render(rows,errorText);var next=host.querySelector('.fp-search');if(next){next.focus();try{next.setSelectionRange(cursor,cursor);}catch(_){}}});
       host.appendChild(search);
       var actions=node('div','fp-actions');
       actions.appendChild(button('Practice independently',function(){go('practice');},'btn ghost'));

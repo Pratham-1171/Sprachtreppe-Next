@@ -24,7 +24,7 @@ test('web build bundles shared staff logic and responsive app styling', async ()
     'window.viewAssignments=renderAssignments;',
     'window.viewFlutterLearn=viewFlutterLearn;',
     'window.viewFlutterPractice=viewFlutterPractice;',
-    'id="spFlutterParity"',
+    "s.id = 'spFlutterParity';",
     'window.viewTeachers=renderTeachers;',
     'classroom:(window.viewClassroom||viewHome)',
     'html,body{max-width:100%;overflow-x:hidden}'
