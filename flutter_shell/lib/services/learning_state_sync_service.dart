@@ -394,58 +394,5 @@ class LearningStateSyncService {
     }
   }
 
-  static Map<String, Object> _buildFlutterState(
-    List<StudySession> sessions,
-    List<Map<String, dynamic>> events,
-  ) {
-    final stats = ProgressStats.fromSessions(sessions);
-    final vocab = <String, Map<String, Object>>{};
-    final grammar = <String, Map<String, Object>>{};
-    final mistakes = <String, Map<String, Object>>{};
-    for (final event in events) {
-      final id = event['entityId']?.toString() ?? 'unknown';
-      final type = event['entityType']?.toString() ?? 'vocabulary';
-      final item = type == 'grammar'
-          ? grammar.putIfAbsent(id, () => <String, Object>{'attempts': 0, 'correct': 0, 'completed': false})
-          : vocab.putIfAbsent(id, () => <String, Object>{'attempts': 0, 'correct': 0, 'status': 'NEW'});
-      item['attempts'] = (item['attempts'] as int) + 1;
-      if (event['correct'] == true) item['correct'] = (item['correct'] as int) + 1;
-      if (type == 'grammar') {
-        item['completed'] = true;
-      } else {
-        final attempts = item['attempts'] as int;
-        final correct = item['correct'] as int;
-        final rate = correct / attempts;
-        item['status'] = attempts >= 3 && rate >= 0.85
-            ? 'MASTERED'
-            : rate >= 0.6
-                ? 'STRONG'
-                : event['correct'] == true
-                    ? 'LEARNING'
-                    : 'WEAK';
-      }
-      if (event['correct'] != true) {
-        final mistake = mistakes.putIfAbsent(id, () => <String, Object>{'count': 0, 'topic': event['topic']?.toString() ?? ''});
-        mistake['count'] = (mistake['count'] as int) + 1;
-      }
-    }
 
-    return <String, Object>{
-      'schemaVersion': 1,
-      'sessions': sessions.map((session) => session.toJson()).toList(),
-      'answerEvents': events,
-      'vocabularyMastery': vocab,
-      'grammarCompletion': grammar,
-      'mistakes': mistakes,
-      'summary': <String, Object>{
-        'totalSessions': stats.totalSessions,
-        'totalQuestions': stats.totalQuestions,
-        'correctAnswers': stats.correctAnswers,
-        'accuracyPercent': stats.accuracyPercent,
-        'currentStreak': stats.currentStreak,
-        'bestStreak': stats.bestStreak,
-        'sessionsToday': stats.sessionsToday,
-      },
-    };
-  }
 }
