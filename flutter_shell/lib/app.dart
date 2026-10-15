@@ -225,7 +225,7 @@ class _RoleShellState extends State<RoleShell> with WidgetsBindingObserver {
       return StudentDashboardPage(user: widget.user);
     }
     if (widget.user.role == AppRole.student && item.label == 'Learn') {
-      return WeeklySyncGate(userId: widget.user.id, child: const LearnPage());
+      return WeeklySyncGate(userId: widget.user.id, child: LearnPage(userId: widget.user.id));
     }
     if (widget.user.role == AppRole.student && item.label == 'Practice') {
       return WeeklySyncGate(
