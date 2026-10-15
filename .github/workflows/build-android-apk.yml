@@ -1,9 +1,9 @@
 name: Build Android APK
 
+# This legacy workflow is kept for manual debugging only.
+# The supported Android build is flutter-android.yml on the flutter-shell branch.
 on:
   workflow_dispatch:
-  push:
-    branches: [web-first]
 
 permissions:
   contents: read
