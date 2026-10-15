@@ -60,7 +60,8 @@ jobs:
           cp backend/migrations/015_harden_flutter_notification_read.sql supabase/migrations/20261015050829_harden_flutter_notification_read.sql
           cp backend/migrations/016_flutter_lms_canonical.sql supabase/migrations/20261015073053_flutter_lms_canonical.sql
           cp backend/migrations/017_lms_submission_guardrails.sql supabase/migrations/20261015073258_lms_submission_guardrails.sql
-          test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 7
+          cp backend/migrations/018_cross_device_learning_state.sql supabase/migrations/20261015095001_cross_device_learning_state.sql
+          test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 8
 
       - name: Link to sprachtreppe-next
         env:
