@@ -320,7 +320,7 @@ class _SyncedLearningCard extends StatelessWidget {
             if (state['updatedAt'] != null && state['updatedAt'].toString().isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                'Learning data last synced: ' + state['updatedAt'].toString(),
+                'Learning data last synced: ${state['updatedAt']}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
