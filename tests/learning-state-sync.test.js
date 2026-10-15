@@ -96,6 +96,42 @@ test('a second device downloads and merges the saved course learning state on si
   assert.ok(imported.sessionHistory.some(s => s.id === 'session-from-device-a'));
 });
 
+
+test('same-ID study sessions merge revisions without duplicate counts across devices', async () => {
+  const server = createServer();
+  const student = server.addUser('session-merge@school.org', PW, {
+    name: 'Session Merge Student', role: 'student', approved: true
+  });
+  server.learningStates.set(student.id, {
+    sessionHistory: [{
+      id: 'shared-session-a',
+      date: '2026-10-14',
+      mode: 'Practice',
+      level: 'A2',
+      questions: 5,
+      correct: 3
+    }]
+  });
+
+  const {window: w} = boot(server);
+  await signIn(w, student.email);
+  w.eval(`S.sessionHistory = [{
+    id: 'shared-session-a', date: '2026-10-14', mode: 'Practice',
+    level: 'A2', questions: 7, correct: 4
+  }, {
+    id: 'session-from-device-b', date: '2026-10-15', mode: 'Grammar',
+    level: 'A1', questions: 3, correct: 2
+  }]; STORE.save();`);
+  await w.SP_AUTH.syncLearningState(w.SP_AUTH._state().auth.access_token);
+
+  const stored = server.learningStates.get(student.id).sessionHistory;
+  const shared = stored.filter(session => session.id === 'shared-session-a');
+  assert.equal(shared.length, 1, 'same stable session ID must occupy one server entry');
+  assert.equal(shared[0].questions, 7);
+  assert.equal(shared[0].correct, 4);
+  assert.equal(stored.filter(session => session.id === 'session-from-device-b').length, 1);
+});
+
 test('browser answer events are shared and idempotent across devices', async () => {
   const server = createServer();
   const student = server.addUser('events@school.org', PW, {name: 'Event Student', role: 'student', approved: true});
