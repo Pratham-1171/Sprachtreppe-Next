@@ -64,7 +64,8 @@ jobs:
           cp backend/migrations/019_recompute_cross_device_learning_aggregates.sql supabase/migrations/20261015095743_recompute_cross_device_learning_aggregates.sql
           cp backend/migrations/020_sync_cross_device_answer_batches.sql supabase/migrations/20261015100234_sync_cross_device_answer_batches.sql
           cp backend/migrations/021_durable_learning_answer_event_ledger.sql supabase/migrations/20261015101528_durable_learning_answer_event_ledger.sql
-          test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 11
+          cp backend/migrations/022_merge_streak_by_latest_study_date.sql supabase/migrations/20261015104251_merge_current_streak_by_latest_study_date.sql
+          test "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 12
 
       - name: Link to sprachtreppe-next
         env:
