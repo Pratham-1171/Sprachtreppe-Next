@@ -190,7 +190,7 @@ class ProgressService {
       sessions.insert(
         0,
         StudySession(
-          id: 'session-' + DateTime.now().microsecondsSinceEpoch.toString(),
+          id: 'session-${DateTime.now().microsecondsSinceEpoch}',
           completedAt: completedAt ?? DateTime.now(),
           mode: mode,
           level: level,
