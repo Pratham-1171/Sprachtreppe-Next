@@ -212,8 +212,12 @@
       const timestamp = Date.parse(String(item.completedAt || ''));
       const date = new Date(Number.isFinite(timestamp) ? timestamp : Date.now());
       const day = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+      const incomingId = String(item.id || (day + ':' + (item.total || 0) + ':' + (item.correct || 0)));
+      const sharedId = incomingId.startsWith('web-session:')
+        ? incomingId
+        : 'flutter-session:' + incomingId;
       return {
-        id: 'flutter-session:' + String(item.id || (day + ':' + (item.total || 0) + ':' + (item.correct || 0))),
+        id: sharedId,
         date: day,
         mode: String(item.mode || 'Flutter practice'),
         level: String(item.level || 'All'),
