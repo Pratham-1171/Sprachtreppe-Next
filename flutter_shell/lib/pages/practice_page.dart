@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/grammar_lesson.dart';
 import '../models/vocabulary_word.dart';
 import '../services/grammar_service.dart';
+import '../services/learning_state_sync_service.dart';
 import '../services/offline_assignment_progress_service.dart';
 import '../services/progress_service.dart';
 import '../services/vocabulary_service.dart';
@@ -281,10 +282,22 @@ class _PracticePageState extends State<PracticePage> {
 
   void _selectAnswer(int index) {
     if (_selectedIndex != null || _questions.isEmpty) return;
+    final question = _questions[_questionIndex];
+    final isCorrect = index == question.correctIndex;
     setState(() {
       _selectedIndex = index;
-      if (index == _questions[_questionIndex].correctIndex) _score++;
+      if (isCorrect) _score++;
     });
+    // Persist the answer locally, including wrong answers, before relying on network sync.
+    LearningStateSyncService(Supabase.instance.client, widget.userId).recordAnswer(
+      mode: _mode.label,
+      level: _level,
+      topic: question.detail,
+      prompt: question.prompt,
+      answer: question.options[index],
+      expected: question.options[question.correctIndex],
+      correct: isCorrect,
+    ).catchError((Object _) {});
   }
 
   Future<void> _nextQuestion() async {
