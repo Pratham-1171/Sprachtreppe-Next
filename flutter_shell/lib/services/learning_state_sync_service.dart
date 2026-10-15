@@ -89,6 +89,12 @@ class LearningStateSyncService {
     // This key contains only unconfirmed offline work; do not truncate it to one batch.
     final pendingEvents = _deduplicateEvents(await _readEvents(prefs))..sort(_compareEvents);
     final localSessions = await _progress.loadSessions();
+    final localStats = ProgressStats.fromSessions(localSessions);
+    final studyDates = localSessions
+        .where((session) => session.total > 0 && session.studyDate.isNotEmpty)
+        .map((session) => session.studyDate)
+        .toList()
+      ..sort();
 
     for (final batch in batchEvents(pendingEvents)) {
       final upload = await _client.rpc(
@@ -109,15 +115,23 @@ class LearningStateSyncService {
       await _acknowledgeEvents(prefs, acknowledged);
     }
 
+    final statePayload = <String, Object>{
+      'flutter': <String, Object>{
+        'sessions': localSessions.map((session) => session.toJson()).toList(),
+      },
+      // One canonical streak document is shared by web and Flutter. Its date
+      // lets the server resolve late/offline updates without max-merging a
+      // stale current streak forever; longest remains a high-water mark.
+      if (studyDates.isNotEmpty)
+        'streak': <String, Object>{
+          'current': localStats.currentStreak,
+          'longest': localStats.bestStreak,
+          'lastStudyDate': studyDates.last,
+        },
+    };
     final raw = await _client.rpc(
       'sync_learning_state',
-      params: {
-        'p_state': <String, Object>{
-          'flutter': <String, Object>{
-            'sessions': localSessions.map((session) => session.toJson()).toList(),
-          },
-        },
-      },
+      params: {'p_state': statePayload},
     );
     if (raw is! Map) throw StateError('The learning-state server returned an invalid response.');
     final response = Map<String, dynamic>.from(raw);
@@ -155,6 +169,8 @@ class LearningStateSyncService {
             ? cloudFlutter['mistakes'] : <String, Object>{},
         'summary': cloudFlutter['summary'] is Map
             ? cloudFlutter['summary'] : <String, Object>{},
+        'streak': fullState['streak'] is Map
+            ? fullState['streak'] as Map : <String, Object>{},
         // Preserve the actual legacy-course state too. Flutter cannot execute the
         // browser engine, but it can display/consume the exact remote mastery,
         // completion, streak, activity and achievement state without dropping it.
@@ -363,6 +379,7 @@ class LearningStateSyncService {
         sessions.add(StudySession(
           id: stableId,
           completedAt: parsed,
+          studyDate: dateValue.length >= 10 ? dateValue.substring(0, 10) : '',
           mode: row['mode']?.toString() ?? 'Web course',
           level: row['level']?.toString() ?? 'All',
           correct: correct.clamp(0, questions).toInt(),
