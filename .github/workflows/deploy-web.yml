@@ -1,8 +1,8 @@
 name: Deploy Sprachtreppe Web App
 
 on:
-  push:
-    branches: [main, flutter-shell]
+  # The canonical root website is deployed from web-first. Run this workflow manually only
+  # when you want to build/check the Flutter web preview; it must not overwrite GitHub Pages.
   workflow_dispatch:
 
 permissions:
@@ -71,6 +71,7 @@ jobs:
           path: ./www
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     permissions:
