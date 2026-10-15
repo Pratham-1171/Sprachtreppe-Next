@@ -137,6 +137,8 @@ test('browser answer events are shared and idempotent across devices', async () 
   assert.equal(shared.summary.eventsTotal, 3);
   assert.equal(shared.vocabularyMastery.haus.attempts, 1);
   assert.equal(shared.grammarCompletion['weil-word-order'].completed, true);
+  assert.equal(second.window.eval('S.crossDeviceProgress.summary.eventsTotal'), 3,
+    'the newly signed-in browser should apply shared aggregates to its own local learning state');
 });
 
 test('offline browser answers remain queued until the event RPC succeeds', async () => {
