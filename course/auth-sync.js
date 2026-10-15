@@ -262,7 +262,12 @@
     const storedIds = new Set(serverHistory.map(session => String(session.id || '')));
     const needsSessionBackfill = flutterSessions.some(session => !storedIds.has(String(session.id)));
     const existingNativeMirror = courseState.crossDeviceProgress || {};
-    const needsProgressBackfill = JSON.stringify(existingNativeMirror) !== JSON.stringify(merged.crossDeviceProgress);
+    const stableJson = value => value && typeof value === 'object'
+      ? Array.isArray(value)
+        ? '[' + value.map(stableJson).join(',') + ']'
+        : '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stableJson(value[key])).join(',') + '}'
+      : JSON.stringify(value);
+    const needsProgressBackfill = stableJson(existingNativeMirror) !== stableJson(merged.crossDeviceProgress);
     let finalRevision = response.data.revision || 0;
     let finalUpdatedAt = response.data.updated_at || null;
     if (needsSessionBackfill || needsProgressBackfill) {
