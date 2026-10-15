@@ -250,6 +250,95 @@
   var selectedTask = null;
   function loadTaskProgress() { var p = getJson(key('task_progress'), {}); return p && typeof p === 'object' && !Array.isArray(p) ? p : {}; }
   function storeTaskProgress(p) { setJson(key('task_progress'), p); }
+  // Progress is written to the same Supabase RPC as the native Flutter app.
+  // Keep local-first values until the server confirms them, and retry on reconnect.
+  var taskProgressSyncFlights = Object.create(null);
+  var taskProgressSyncTimer = null;
+  function syncTaskProgress(assignmentId) {
+    var k = String(assignmentId == null ? '' : assignmentId);
+    if (!/^\d+$/.test(k) || Number(k) < 1) return Promise.resolve(false);
+    if (window.navigator.onLine === false || !window.SP_LMS || typeof window.SP_LMS.rpc !== 'function') return Promise.resolve(false);
+    if (role() !== 'student' || !profile().approved) return Promise.resolve(false);
+    if (taskProgressSyncFlights[k]) return taskProgressSyncFlights[k];
+    var run = (async function () {
+      for (var attempt = 0; attempt < 5; attempt++) {
+        if (window.navigator.onLine === false) return false;
+        var all = loadTaskProgress();
+        var p = all[k];
+        if (!p || p.submitted) return false;
+        var target = taskTarget(p);
+        var done = Math.min(target, Math.max(0, Math.floor(Number(p.done) || 0)));
+        var correct = Math.min(done, Math.max(0, Math.floor(Number(p.correct) || 0)));
+        if (done < 1) return true;
+        var sentDone = Number(p.serverSyncedDone);
+        var sentCorrect = Number(p.serverSyncedCorrect);
+        if (Number.isFinite(sentDone) && sentDone >= done && Number.isFinite(sentCorrect) && sentCorrect >= correct) return true;
+        await window.SP_LMS.rpc('update_assignment_progress', {
+          p_assignment: Number(k), p_done: done, p_correct: correct
+        });
+        // Another answer may have been recorded while the request was in flight.
+        // Mark only the snapshot just acknowledged; loop to send any newer snapshot.
+        all = loadTaskProgress();
+        p = all[k];
+        if (!p) return true;
+        p.serverSyncedDone = Math.max(Number(p.serverSyncedDone) || 0, done);
+        p.serverSyncedCorrect = Math.max(Number(p.serverSyncedCorrect) || 0, correct);
+        p.serverSyncedAt = new Date().toISOString();
+        storeTaskProgress(all);
+        var latestDone = Math.min(target, Math.max(0, Math.floor(Number(p.done) || 0)));
+        var latestCorrect = Math.min(latestDone, Math.max(0, Math.floor(Number(p.correct) || 0)));
+        if (latestDone === done && latestCorrect === correct) return true;
+      }
+      return false;
+    })().catch(function () {
+      // The local snapshot is intentionally retained; online / route retries will resend it.
+      return false;
+    });
+    taskProgressSyncFlights[k] = run;
+    run.then(function () {
+      if (taskProgressSyncFlights[k] === run) delete taskProgressSyncFlights[k];
+    });
+    return run;
+  }
+  function syncPendingTaskProgress() {
+    if (role() !== 'student' || !profile().approved || window.navigator.onLine === false) return;
+    var all = loadTaskProgress();
+    Object.keys(all).forEach(function (k) {
+      var p = all[k] || {};
+      if (p.submitted) return; // Written tasks use the secure submit_progress review queue.
+      var done = Math.max(0, Number(p.done) || 0);
+      var correct = Math.max(0, Number(p.correct) || 0);
+      if (done > (Number(p.serverSyncedDone) || 0) || correct > (Number(p.serverSyncedCorrect) || 0)) {
+        syncTaskProgress(k);
+      }
+    });
+  }
+  function scheduleTaskProgressSync(assignmentId) {
+    clearTimeout(taskProgressSyncTimer);
+    taskProgressSyncTimer = setTimeout(function () { syncTaskProgress(assignmentId); }, 500);
+  }
+  function beginTaskPractice(t) {
+    var all = loadTaskProgress();
+    var k = taskId(t);
+    var old = all[k] || {};
+    var target = taskTarget(t);
+    var serverDone = Math.min(target, Math.max(0, Number(t.done) || Number(t.completed_count) || 0));
+    var serverCorrect = Math.min(serverDone, Math.max(0, Number(t.correct) || 0));
+    var done = Math.min(target, Math.max(Number(old.done) || 0, serverDone));
+    var correct = Math.min(done, Math.max(Number(old.correct) || 0, serverCorrect));
+    var p = Object.assign({}, old, {
+      assignment_id: k, title: taskTitle(t), skill: String(t.skill || t.kind || 'mixed'),
+      done: done, correct: correct, target_count: target, updated_at: new Date().toISOString()
+    });
+    p.serverSyncedDone = Math.max(Number(old.serverSyncedDone) || 0, serverDone);
+    p.serverSyncedCorrect = Math.max(Number(old.serverSyncedCorrect) || 0, serverCorrect);
+    all[k] = p;
+    storeTaskProgress(all);
+    setJson(key('task_active'), {
+      assignment_id: k, title: taskTitle(t), skill: String(t.skill || t.kind || 'mixed'),
+      target_count: target, done: done, correct: correct
+    });
+  }
   function taskId(t) { return String(t && t.id != null ? t.id : t && t.assignment_id != null ? t.assignment_id : ''); }
   function taskTitle(t) { return String(t && (t.title || t.name) || 'Assignment'); }
   function taskTarget(t) { var n = Number(t && (t.target_count || t.targetCount)); return Number.isFinite(n) && n > 0 ? Math.min(1000, Math.floor(n)) : 10; }
@@ -321,17 +410,16 @@
       var waiting = Array.isArray(queue) ? queue.filter(function (q) { return String(q.assignment_id) === taskId(t); }).length : 0;
       if (waiting) c.appendChild(node('p','fp-muted',waiting + ' response(s) waiting for sync or review.'));
     } else {
-      var text = node('p','fp-muted','Start a practice round for this task. Your local question count and accuracy are added to the next progress sync.');
+      var text = node('p','fp-muted','Progress is saved on this device first and synced to your classroom whenever a connection is available.');
       c.appendChild(text);
       c.appendChild(button('Start practice', function () {
-        var all = loadTaskProgress(); var p = all[taskId(t)] || {};
-        setJson(key('task_active'), {assignment_id:taskId(t),title:taskTitle(t),skill:String(t.skill || t.kind || 'mixed'),target_count:taskTarget(t),done:Number(p.done)||Number(t.done)||0,correct:Number(p.correct)||0});
+        beginTaskPractice(t);
         go('practice');
       }, 'btn'));
     }
     c.appendChild(button('Back to task list', onBack, 'btn ghost'));
     host.appendChild(c);
-    host.appendChild(node('p','fp-muted','Progress is device-local until a successful sync includes it. Classroom-wide assignment records require the server LMS tables and policies.'));
+    host.appendChild(node('p','fp-muted','Practice progress syncs to your classroom when online. Work completed offline stays saved here and retries automatically after reconnecting.'));
   }
   function viewFlutterAssignments(host) {
     appendStyles();
@@ -483,7 +571,8 @@
     if(!window.__spFlutterNotifyTimer)window.__spFlutterNotifyTimer=setInterval(update,30000);
   }
 
-  // Attribute practice answers to a selected assignment, and include that local progress in weekly sync.
+  // Attribute real practice answers to the active assignment. The same cumulative progress
+  // is sent to update_assignment_progress in Flutter and on web; failed calls remain queued.
   if(typeof window.recordPracticeActivity==='function'&&!window.recordPracticeActivity.__spFlutterWrapped){
     var originalRecorder=window.recordPracticeActivity;
     var wrappedRecorder=function(skill,correct){
@@ -491,11 +580,14 @@
       var active=getJson(key('task_active'),null);
       if(active&&active.assignment_id){
         var progress=loadTaskProgress();var k=String(active.assignment_id);var p=progress[k]||{};
-        var target=Number(p.target_count||active.target_count)||10;
-        var done=(Number(p.done)||0)+1;
-        var good=(Number(p.correct)||0)+(correct===true?1:0);
+        var target=Math.max(1,Math.min(1000,Number(p.target_count||active.target_count)||10));
+        var previousDone=Math.max(Number(p.done)||0,Number(active.done)||0);
+        var previousCorrect=Math.max(Number(p.correct)||0,Number(active.correct)||0);
+        var done=Math.min(target,previousDone+1);
+        var good=Math.min(done,previousCorrect+(correct===true?1:0));
         progress[k]=Object.assign({},p,{assignment_id:k,title:active.title||'Assignment',skill:String(active.skill||skill||'mixed'),done:done,correct:good,target_count:target,completed:done>=target,submitted:!!p.submitted,updated_at:new Date().toISOString()});
         storeTaskProgress(progress);
+        scheduleTaskProgressSync(k);
         if(done>=target)try{localStorage.removeItem(key('task_active'));}catch(_){}
         var badge=document.querySelector('[data-active-task-progress]');
         if(badge)badge.textContent=done+' / '+target+' questions';
@@ -505,6 +597,10 @@
     wrappedRecorder.__spFlutterWrapped=true;
     window.recordPracticeActivity=wrappedRecorder;
   }
+  window.addEventListener('online',syncPendingTaskProgress);
+  window.addEventListener('hashchange',function(){setTimeout(syncPendingTaskProgress,0);});
+  setTimeout(syncPendingTaskProgress,0);
+  if(!window.__spTaskProgressRetryTimer)window.__spTaskProgressRetryTimer=setInterval(syncPendingTaskProgress,30000);
 
   window.viewFlutterHome=viewFlutterHome;
   window.viewFlutterLearn=viewFlutterLearn;
