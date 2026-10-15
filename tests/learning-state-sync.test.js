@@ -119,3 +119,25 @@ test('browser answer events are shared and idempotent across devices', async () 
   assert.equal(server.learningAnswerEvents.get(student.id).size, 3);
   assert.equal(server.learningStates.get(student.id).flutter.summary.eventsTotal, 3);
 });
+
+test('offline browser answers remain queued until the event RPC succeeds', async () => {
+  const server = createServer();
+  const student = server.addUser('offline-events@school.org', PW, {
+    name: 'Offline Event Student', role: 'student', approved: true
+  });
+  const {window: w} = boot(server);
+  await signIn(w, student.email);
+  const accessToken = w.SP_AUTH._state().auth.access_token;
+
+  w.SP_AUTH.recordLearningAnswer({
+    mode: 'grammar', entityType: 'grammar', entityId: 'dass-word-order',
+    level: 'A2', topic: 'Word order', prompt: 'dass', correct: false
+  });
+  server.offline = true;
+  await assert.rejects(w.SP_AUTH.syncLearningAnswerEvents(accessToken));
+  assert.equal(w.SP_AUTH.pendingLearningAnswerCount(), 1);
+  server.offline = false;
+  await w.SP_AUTH.syncLearningAnswerEvents(accessToken);
+  assert.equal(w.SP_AUTH.pendingLearningAnswerCount(), 0);
+  assert.equal(server.learningAnswerEvents.get(student.id).size, 1);
+});
