@@ -177,6 +177,12 @@ class LearningStateSyncService {
         'updatedAt': response['updated_at']?.toString() ?? '',
       }));
     });
+
+    // Answers may arrive while the RPCs are running. If the debounce timer fired
+    // during this single-flight sync, its attempt joined the active future and
+    // could not send the newer answers. Schedule another pass for anything left.
+    final queuedAfterSync = await _readEvents(prefs);
+    if (queuedAfterSync.isNotEmpty) _scheduleSync();
   }
 
   /// Chunks the complete local queue rather than truncating it to one API batch.
