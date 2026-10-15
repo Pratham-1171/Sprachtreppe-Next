@@ -167,6 +167,7 @@
   async function syncLearningAnswerEvents(accessToken) {
     const uid = auth && auth.user && auth.user.id;
     if (!uid || !isStudent()) return {pending: 0};
+    clearTimeout(answerSyncTimer);
     const pending = dedupeLearningAnswerQueue(readLearningAnswerQueue(uid));
     for (let offset = 0; offset < pending.length; offset += 200) {
       const batch = pending.slice(offset, offset + 200);
@@ -182,7 +183,9 @@
       const stillQueued = readLearningAnswerQueue(uid).filter(item => !acknowledged.has(String(item.id)));
       writeLearningAnswerQueue(uid, stillQueued);
     }
-    return {pending: readLearningAnswerQueue(uid).length};
+    const remaining = readLearningAnswerQueue(uid).length;
+    if (remaining === 0) clearTimeout(answerSyncTimer);
+    return {pending: remaining};
   }
 
   function normaliseCourseSessions(sessions) {
