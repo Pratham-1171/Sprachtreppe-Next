@@ -1,7 +1,7 @@
 // In-memory stand-in for the Supabase endpoints the app uses. It mirrors the RLS rules proven in sql.test.js.
 function createServer(opts) {
   opts = opts || {};
-  const S = {users: new Map(), tokens: new Map(), refresh: new Map(), subs: [], nextSub: 1, assignments: [], assignmentProgress: new Map(), nextAssignment: 1, offline: false, autoConfirm: opts.autoConfirm !== false, log: [], idc: 1};
+  const S = {users: new Map(), tokens: new Map(), refresh: new Map(), subs: [], nextSub: 1, assignments: [], assignmentProgress: new Map(), learningStates: new Map(), learningStateRevisions: new Map(), nextAssignment: 1, offline: false, autoConfirm: opts.autoConfirm !== false, log: [], idc: 1};
   const uid = () => 'u' + (S.idc++).toString().padStart(4, '0') + '-0000-0000-0000-000000000000';
   S.addUser = (email, password, o) => { o = o || {}; const key = String(email).trim().toLowerCase(); const u = {id: uid(), email: key, password, full_name: o.name || '', role: o.role || 'student', approved: !!o.approved}; S.users.set(key, u); return u; };
   S.addAssignment = options => {
@@ -24,6 +24,35 @@ function createServer(opts) {
   };
   const caller = h => { const t = (h.Authorization || '').replace('Bearer ', ''); const id = S.tokens.get(t); return id ? byId(id) : null; };
   const isAdmin = u => u && u.role === 'admin' && u.approved;
+  const mergeLearningValue = (remote, local, path = []) => {
+    if (remote == null) return local == null ? remote : JSON.parse(JSON.stringify(local));
+    if (local == null) return JSON.parse(JSON.stringify(remote));
+    if (Array.isArray(remote) && Array.isArray(local)) {
+      const stable = value => Array.isArray(value) ? '[' + value.map(stable).join(',') + ']' :
+        value && typeof value === 'object' ? '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stable(value[key])).join(',') + '}' : JSON.stringify(value);
+      const result = [], seen = new Set();
+      for (const item of remote.concat(local)) {
+        const key = item && typeof item === 'object' && item.id != null ? 'id:' + item.id : stable(item);
+        if (!seen.has(key)) { seen.add(key); result.push(item); }
+      }
+      return result;
+    }
+    if (remote && local && typeof remote === 'object' && typeof local === 'object') {
+      const result = {};
+      for (const key of new Set(Object.keys(remote).concat(Object.keys(local)))) {
+        result[key] = !(key in local) ? remote[key] : !(key in remote) ? local[key] :
+          mergeLearningValue(remote[key], local[key], path.concat(key));
+      }
+      return result;
+    }
+    if (typeof remote === 'number' && typeof local === 'number') return Math.max(remote, local);
+    if (typeof remote === 'boolean' && typeof local === 'boolean') return remote || local;
+    if (path[path.length - 1] === 'status' && typeof remote === 'string' && typeof local === 'string') {
+      const rank = value => ({UNKNOWN:0, NEW:1, WEAK:2, LEARNING:3, FAMILIAR:4, LEARNED:5, STRONG:5, MASTERED:6}[value.toUpperCase()] || 0);
+      return rank(local) >= rank(remote) ? local : remote;
+    }
+    return local;
+  };
   const R = (status, body) => ({status, body});
   S.handle = (method, url, headers, body) => {
     const u = new URL(url), p = u.pathname, q = u.searchParams, me = caller(headers);
@@ -79,6 +108,15 @@ function createServer(opts) {
       const target = byId(body.p_user_id); if (!target) return R(404, {message: 'user profile not found'});
       target.role = body.p_role; if (body.p_role === 'teacher' || body.p_role === 'admin') target.approved = true;
       return R(200, {id: target.id, email: target.email, full_name: target.full_name, role: target.role, approved: target.approved});
+    }
+    if (p === '/rest/v1/rpc/sync_learning_state') {
+      if (!me.approved || me.role !== 'student') return R(403, {message: 'approved student account required', code: '42501'});
+      if (!body.p_state || typeof body.p_state !== 'object' || Array.isArray(body.p_state)) return R(400, {message: 'learning state must be an object'});
+      const state = mergeLearningValue(S.learningStates.get(me.id) || {}, body.p_state);
+      S.learningStates.set(me.id, state);
+      const revision = (S.learningStateRevisions.get(me.id) || 0) + 1;
+      S.learningStateRevisions.set(me.id, revision);
+      return R(200, {state, revision, updated_at: new Date().toISOString()});
     }
     if (p === '/rest/v1/rpc/submit_progress') {
       if (!me.approved) return R(403, {message: 'account not approved', code: '42501'});
