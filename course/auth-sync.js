@@ -54,6 +54,69 @@
   }
   const online = () => typeof navigator === 'undefined' || navigator.onLine !== false;
 
+  // Merge is monotonic for counters and collections. Array entries are set-unioned,
+  // so replaying a snapshot cannot duplicate an answer or study session.
+  function mergeLearningStates(remote, local, path) {
+    path = path || [];
+    if (remote == null) return local == null ? remote : JSON.parse(JSON.stringify(local));
+    if (local == null) return JSON.parse(JSON.stringify(remote));
+    if (Array.isArray(remote) && Array.isArray(local)) {
+      const result = [], seen = new Set();
+      for (const item of remote.concat(local)) {
+        const id = item && typeof item === 'object' && item.id != null ? 'id:' + item.id : JSON.stringify(item);
+        if (!seen.has(id)) { seen.add(id); result.push(item); }
+      }
+      return result;
+    }
+    if (remote && local && typeof remote === 'object' && typeof local === 'object') {
+      const result = {};
+      for (const key of new Set(Object.keys(remote).concat(Object.keys(local)))) {
+        if (!(key in local)) result[key] = remote[key];
+        else if (!(key in remote)) result[key] = local[key];
+        else result[key] = mergeLearningStates(remote[key], local[key], path.concat(key));
+      }
+      return result;
+    }
+    if (typeof remote === 'number' && typeof local === 'number') return Math.max(remote, local);
+    if (typeof remote === 'boolean' && typeof local === 'boolean') return remote || local;
+    const leaf = path[path.length - 1] || '';
+    if (leaf === 'status' && typeof remote === 'string' && typeof local === 'string') {
+      const rank = value => ({UNKNOWN:0, NEW:1, WEAK:2, LEARNING:3, FAMILIAR:4, LEARNED:5, STRONG:5, MASTERED:6}[String(value).toUpperCase()] || 0);
+      return rank(local) >= rank(remote) ? local : remote;
+    }
+    if (typeof remote === 'string' && typeof local === 'string' && /(lastSeen|lastStudyDate|updatedAt|completedAt|timestamp|^date$)$/i.test(leaf)) {
+      const r = Date.parse(remote), l = Date.parse(local);
+      if (Number.isFinite(r) && Number.isFinite(l)) return l >= r ? local : remote;
+      const rn = Number(remote), ln = Number(local);
+      if (Number.isFinite(rn) && Number.isFinite(ln)) return ln >= rn ? local : remote;
+    }
+    // Device-local preferences (like language and current page) follow this device.
+    return local;
+  }
+
+  async function syncLearningState(accessToken) {
+    const local = JSON.parse(JSON.stringify(S));
+    delete local.lastView; // navigation is not learning progress
+    const response = await http('/rest/v1/rpc/sync_learning_state', {
+      method: 'POST', token: accessToken, body: {p_state: local}
+    });
+    const serverState = response.data && response.data.state;
+    if (!serverState || typeof serverState !== 'object' || Array.isArray(serverState)) {
+      throw new Error('The server returned an invalid learning-state snapshot.');
+    }
+    const merged = mergeLearningStates(serverState, local);
+    if (typeof applyLoadedState === 'function') {
+      if (!applyLoadedState({replaceLocal: true, stateVersion: Date.now(), state: merged})) {
+        throw new Error('The saved learning state was not compatible with this course version.');
+      }
+    } else {
+      Object.keys(S).forEach(key => { delete S[key]; });
+      Object.assign(S, merged);
+      STORE.save();
+    }
+    return {revision: response.data.revision || 0, updated_at: response.data.updated_at || null};
+  }
+
   /* ---------------- session ---------------- */
   function saveAuth() { ls.set(K_AUTH, auth); }
   function setSession(s) {
@@ -177,6 +240,7 @@
       try {
         if (!auth.profile.approved) { await loadProfile(); if (!auth.profile.approved) { renderChip(); return {pending: true}; } }
         const t = await token();
+        await syncLearningState(t); // pull + merge personal learning state before producing the teacher report
         const snapshot = buildSnapshot();
         const r = await http('/rest/v1/rpc/submit_progress', {method: 'POST', token: t, body: {p_payload: snapshot, p_client_id: newId()}});
         // Remove only the local task responses included in this server-accepted snapshot.
@@ -600,7 +664,10 @@
     if (!STORE.__spWrapped) { const orig = STORE.save.bind(STORE); STORE.save = function () { orig(); markDirty(); }; STORE.__spWrapped = true; }
     clearInterval(timer); timer = setInterval(tick, 60000);
     if (!window.__spListeners) { window.__spListeners = true; window.addEventListener('online', tick); document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); }); }
-    if (online() && auth && auth.refresh_token) loadProfile().then(() => { syncNav(); renderChip(); renderLock(); }).catch(e => { if (e.status === 400 || e.status === 404) signOut(); });
+    if (online() && auth && auth.refresh_token) loadProfile().then(() => {
+      syncNav(); renderChip(); renderLock();
+      if (isStudent() && auth.profile.approved) syncNow(false).catch(() => {});
+    }).catch(e => { if (e.status === 400 || e.status === 404) signOut(); });
   }
   function stopServices() { clearInterval(timer); clearTimeout(syncTimer); const c = document.getElementById('spChip'); if (c) c.textContent = ''; const a = document.getElementById('spAcct'); if (a) a.remove(); if (c) c.remove(); }
 
@@ -631,7 +698,7 @@
     }
   }
 
-  window.SP_AUTH = Object.assign(window.SP_AUTH, {syncNow, lockState, signOut, buildSnapshot, isAdmin, isTeacher, isStudent, _state: () => ({auth, sync})});
+  window.SP_AUTH = Object.assign(window.SP_AUTH, {syncNow, syncLearningState, mergeLearningStates, lockState, signOut, buildSnapshot, isAdmin, isTeacher, isStudent, _state: () => ({auth, sync})});
   css();
   const emailLink = pendingEmailLink();
   if (emailLink) {
