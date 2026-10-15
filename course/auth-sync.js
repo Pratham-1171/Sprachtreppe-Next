@@ -96,9 +96,99 @@
     return local;
   }
 
+  /* ---------------- idempotent offline answer-event queue ---------------- */
+  const K_ANSWER_EVENTS = 'sp-learning-answer-events-v1-';
+  let answerSyncTimer = null;
+  function answerQueueKey(uid) { return K_ANSWER_EVENTS + String(uid); }
+  function readLearningAnswerQueue(uid) {
+    const raw = localStorage.getItem(answerQueueKey(uid));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error('Saved offline answer queue is not an array.');
+    return parsed.filter(item => item && typeof item === 'object' && typeof item.id === 'string' && item.id);
+  }
+  function writeLearningAnswerQueue(uid, events) {
+    // localStorage writes are atomic. On quota failure, the existing queue is retained
+    // and the error propagates instead of silently dropping older offline answers.
+    localStorage.setItem(answerQueueKey(uid), JSON.stringify(events));
+  }
+  function dedupeLearningAnswerQueue(events) {
+    const seen = new Set();
+    return events.filter(event => {
+      const id = String(event && event.id || '');
+      if (!id || seen.has(id)) return false;
+      seen.add(id); return true;
+    }).sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')));
+  }
+  function recordLearningAnswer(input) {
+    const uid = auth && auth.user && auth.user.id;
+    if (!uid || !isStudent()) return false;
+    input = input || {};
+    const entityType = String(input.entityType || input.mode || '').toLowerCase().includes('grammar') ? 'grammar' : 'vocabulary';
+    const event = {
+      id: (window.crypto && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2),
+      type: 'answer',
+      entityType,
+      entityId: String(input.entityId || input.topic || input.skill || input.mode || 'practice').trim().slice(0, 160),
+      timestamp: new Date().toISOString(),
+      mode: String(input.mode || 'practice').slice(0, 40),
+      level: String(input.level || 'All').slice(0, 10),
+      topic: String(input.topic || '').slice(0, 80),
+      prompt: String(input.prompt || '').slice(0, 180),
+      answer: String(input.answer || '').slice(0, 120),
+      expected: String(input.expected || '').slice(0, 120),
+      correct: input.correct === true
+    };
+    try {
+      const queued = readLearningAnswerQueue(uid);
+      queued.push(event);
+      writeLearningAnswerQueue(uid, dedupeLearningAnswerQueue(queued));
+    } catch (error) {
+      sync.lastError = 'local-learning-queue'; ls.set(K_SYNC, sync);
+      toast('Could not add this answer to the offline sync queue. Connect to the internet and retry sync.');
+      return false;
+    }
+    if (online()) scheduleAnswerSync();
+    return true;
+  }
+  function pendingLearningAnswerCount() {
+    try { return readLearningAnswerQueue(auth && auth.user && auth.user.id).length; }
+    catch (e) { return -1; }
+  }
+  function scheduleAnswerSync() {
+    clearTimeout(answerSyncTimer);
+    answerSyncTimer = setTimeout(() => {
+      if (online() && isStudent() && auth && auth.profile && auth.profile.approved) {
+        syncNow(false).catch(() => {});
+      }
+    }, 1800);
+  }
+  async function syncLearningAnswerEvents(accessToken) {
+    const uid = auth && auth.user && auth.user.id;
+    if (!uid || !isStudent()) return {pending: 0};
+    const pending = dedupeLearningAnswerQueue(readLearningAnswerQueue(uid));
+    for (let offset = 0; offset < pending.length; offset += 200) {
+      const batch = pending.slice(offset, offset + 200);
+      const response = await http('/rest/v1/rpc/sync_learning_answer_events', {
+        method: 'POST', token: accessToken, body: {p_events: batch}
+      });
+      const returned = response.data && response.data.accepted_ids;
+      // Older compatible RPCs may not return accepted_ids; a successful batch
+      // response itself is an acknowledgement because server inserts are idempotent.
+      const acknowledged = new Set(Array.isArray(returned)
+        ? returned.map(String)
+        : batch.map(item => String(item.id)));
+      const stillQueued = readLearningAnswerQueue(uid).filter(item => !acknowledged.has(String(item.id)));
+      writeLearningAnswerQueue(uid, stillQueued);
+    }
+    return {pending: readLearningAnswerQueue(uid).length};
+  }
+
   async function syncLearningState(accessToken) {
     const local = JSON.parse(JSON.stringify(S));
     delete local.lastView; // navigation is not learning progress
+    delete local.flutter;  // Flutter's normalized answer ledger/aggregates stay server-owned
     const response = await http('/rest/v1/rpc/sync_learning_state', {
       method: 'POST', token: accessToken, body: {p_state: local}
     });
@@ -106,7 +196,9 @@
     if (!serverState || typeof serverState !== 'object' || Array.isArray(serverState)) {
       throw new Error('The server returned an invalid learning-state snapshot.');
     }
-    const merged = mergeLearningStates(serverState, local);
+    const courseState = JSON.parse(JSON.stringify(serverState));
+    delete courseState.flutter; // do not copy Flutter's server aggregates into the legacy course state
+    const merged = mergeLearningStates(courseState, local);
     if (typeof applyLoadedState === 'function') {
       if (!applyLoadedState({replaceLocal: true, stateVersion: Date.now(), state: merged})) {
         throw new Error('The saved learning state was not compatible with this course version.');
@@ -242,6 +334,7 @@
       try {
         if (!auth.profile.approved) { await loadProfile(); if (!auth.profile.approved) { renderChip(); return {pending: true}; } }
         const t = await token();
+        await syncLearningAnswerEvents(t); // immutable answer events are deduplicated server-side by ID
         await syncLearningState(t); // pull + merge personal learning state before producing the teacher report
         const snapshot = buildSnapshot();
         const r = await http('/rest/v1/rpc/submit_progress', {method: 'POST', token: t, body: {p_payload: snapshot, p_client_id: newId()}});
@@ -267,6 +360,7 @@
           try { await http('/rest/v1/rpc/ack_feedback', {method: 'POST', token: t, body: {p_ids: fb.map(x => x.id)}}); } catch (e) {}
         }
         ls.set(K_SYNC, sync); renderLock(); renderChip();
+        if (pendingLearningAnswerCount() > 0) scheduleAnswerSync();
         return {ok: true};
       } catch (e) {
         sync.lastError = e.offline ? 'offline' : trunc(e.message, 160); ls.set(K_SYNC, sync);
@@ -700,7 +794,7 @@
     }
   }
 
-  window.SP_AUTH = Object.assign(window.SP_AUTH, {syncNow, syncLearningState, mergeLearningStates, lockState, signOut, buildSnapshot, isAdmin, isTeacher, isStudent, _state: () => ({auth, sync})});
+  window.SP_AUTH = Object.assign(window.SP_AUTH, {syncNow, syncLearningState, syncLearningAnswerEvents, recordLearningAnswer, pendingLearningAnswerCount, mergeLearningStates, lockState, signOut, buildSnapshot, isAdmin, isTeacher, isStudent, _state: () => ({auth, sync})});
   css();
   const emailLink = pendingEmailLink();
   if (emailLink) {
