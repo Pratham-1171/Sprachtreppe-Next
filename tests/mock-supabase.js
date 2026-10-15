@@ -30,9 +30,22 @@ function createServer(opts) {
     if (Array.isArray(remote) && Array.isArray(local)) {
       const stable = value => Array.isArray(value) ? '[' + value.map(stable).join(',') + ']' :
         value && typeof value === 'object' ? '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stable(value[key])).join(',') + '}' : JSON.stringify(value);
-      const result = [], seen = new Set();
-      for (const item of remote.concat(local)) {
-        const key = item && typeof item === 'object' && item.id != null ? 'id:' + item.id : stable(item);
+      const result = [], byId = new Map(), seen = new Set();
+      for (const source of remote.concat(local)) {
+        const item = JSON.parse(JSON.stringify(source));
+        const id = item && typeof item === 'object' && !Array.isArray(item) && item.id != null
+          ? String(item.id).trim() : '';
+        if (id) {
+          if (byId.has(id)) {
+            const index = byId.get(id);
+            result[index] = mergeLearningValue(result[index], item, path);
+          } else {
+            byId.set(id, result.length);
+            result.push(item);
+          }
+          continue;
+        }
+        const key = stable(item);
         if (!seen.has(key)) { seen.add(key); result.push(item); }
       }
       return result;
