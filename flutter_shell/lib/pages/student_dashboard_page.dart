@@ -233,6 +233,104 @@ class _StatsGrid extends StatelessWidget {
   }
 }
 
+class _SyncedLearningCard extends StatelessWidget {
+  const _SyncedLearningCard({required this.state});
+
+  final Map<String, dynamic> state;
+
+  int _number(dynamic value) => value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawCourse = state['courseState'];
+    final course = rawCourse is Map ? rawCourse : <dynamic, dynamic>{};
+    final rawCourseMastery = course['mastery'];
+    final courseMastery = rawCourseMastery is Map ? rawCourseMastery : <dynamic, dynamic>{};
+    final rawAggregateMastery = state['vocabularyMastery'];
+    final aggregateMastery = rawAggregateMastery is Map ? rawAggregateMastery : <dynamic, dynamic>{};
+    final vocabulary = courseMastery.isNotEmpty
+        ? courseMastery.values.whereType<Map>().toList()
+        : aggregateMastery.values.whereType<Map>().toList();
+    final mastered = vocabulary.where((item) {
+      final status = (item['status'] ?? '').toString().toUpperCase();
+      return status == 'MASTERED' || status == 'STRONG' || status == 'LEARNED';
+    }).length;
+
+    final rawCourseGrammar = course['grammarDone'];
+    final courseGrammar = rawCourseGrammar is Map ? rawCourseGrammar : <dynamic, dynamic>{};
+    final rawAggregateGrammar = state['grammarCompletion'];
+    final aggregateGrammar = rawAggregateGrammar is Map ? rawAggregateGrammar : <dynamic, dynamic>{};
+    final completedGrammar = courseGrammar.isNotEmpty
+        ? courseGrammar.values.where((item) => item == true || item is Map && item['completed'] == true).length
+        : aggregateGrammar.values.where((item) =>
+            item is Map && (item['completed'] == true || item['completed'] == 'true')).length;
+
+    final rawCourseMistakes = course['mistakes'];
+    final courseMistakes = rawCourseMistakes is Map ? rawCourseMistakes : <dynamic, dynamic>{};
+    final rawAggregateMistakes = state['mistakes'];
+    final aggregateMistakes = rawAggregateMistakes is Map ? rawAggregateMistakes : <dynamic, dynamic>{};
+    final mistakes = courseMistakes.isNotEmpty
+        ? courseMistakes.values.whereType<Map>()
+        : aggregateMistakes.values.whereType<Map>();
+    final mistakeCount = mistakes.fold<int>(0, (sum, item) =>
+        sum + _number(item['count'] ?? item['n'] ?? 1));
+
+    final rawSummary = state['summary'];
+    final summary = rawSummary is Map ? rawSummary : <dynamic, dynamic>{};
+    final rawHistory = course['sessionHistory'];
+    final courseHistoryCount = rawHistory is List ? rawHistory.length : 0;
+    final syncedAnswers = _number(summary['eventsTotal']);
+    final sessionSummaryCount = _number(summary['totalSessions']);
+    final totalSessions = sessionSummaryCount > courseHistoryCount ? sessionSummaryCount : courseHistoryCount;
+    final rawCourseStreak = course['streak'];
+    final courseStreak = rawCourseStreak is Map ? rawCourseStreak : <dynamic, dynamic>{};
+    final bestStreak = [
+      _number(summary['bestStreak']),
+      _number(courseStreak['longest']),
+    ].reduce((a, b) => a > b ? a : b);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Learning progress across devices',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              syncedAnswers == 0 && totalSessions == 0 && courseMastery.isEmpty && courseGrammar.isEmpty
+                  ? 'Your vocabulary, grammar and study history will appear here after your first sync.'
+                  : 'Includes saved course mastery, grammar completion, mistakes and sessions from your signed-in devices.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _ProgressMetric(label: 'Words strong/mastered', value: '$mastered'),
+                _ProgressMetric(label: 'Grammar topics', value: '$completedGrammar'),
+                _ProgressMetric(label: 'Wrong answers', value: '$mistakeCount'),
+                _ProgressMetric(label: 'Synced answers', value: '$syncedAnswers'),
+                _ProgressMetric(label: 'Study sessions', value: '$totalSessions'),
+                _ProgressMetric(label: 'Best streak', value: '$bestStreak days'),
+              ],
+            ),
+            if (state['updatedAt'] != null && state['updatedAt'].toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Learning data last synced: ' + state['updatedAt'].toString(),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StudyProgressCard extends StatelessWidget {
   const _StudyProgressCard({required this.stats});
 
