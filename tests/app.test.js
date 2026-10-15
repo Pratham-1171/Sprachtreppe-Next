@@ -9,7 +9,7 @@ const go = async (w, v) => { w.location.hash = '#/' + v; w.dispatchEvent(new w.H
 test('local build: every screen renders without a script error', async () => {
   const {window: w, errors} = load(build({ALLOW_LOCAL_MODE: '1'})); await wait(600);
   assert.deepEqual(real(errors), []);
-  const views = ['home','session','review','vocab','grammar','quiz','flash','verbs','connectors','collocations','compare','mistakes','sentence','spelling','dictation','families','articles','pronounce','synonyms','patterns','listen','speak','read','write','exam','resources','progress','settings'];
+  const views = ['home','learn','course','practice','dashboard','assignments','session','review','vocab','grammar','quiz','flash','verbs','connectors','collocations','compare','mistakes','sentence','spelling','dictation','families','articles','pronounce','synonyms','patterns','listen','speak','read','write','exam','resources','progress','settings'];
   for (const v of views) { errors.length = 0; await go(w, v); assert.deepEqual(real(errors), [], 'view ' + v); }
   assert.equal(w.__SP_ENGINE_VERSION, '8.0-grammar-core');
   assert.equal(w.SP_AUTH.enabled, false, 'local mode has no login');
@@ -22,6 +22,9 @@ test('web build bundles shared staff logic and responsive app styling', async ()
     'id="spLmsMobileFix"',
     'content="#315f52"',
     'window.viewAssignments=renderAssignments;',
+    'window.viewFlutterLearn=viewFlutterLearn;',
+    'window.viewFlutterPractice=viewFlutterPractice;',
+    'id="spFlutterParity"',
     'window.viewTeachers=renderTeachers;',
     'classroom:(window.viewClassroom||viewHome)',
     'html,body{max-width:100%;overflow-x:hidden}'

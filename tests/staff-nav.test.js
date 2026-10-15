@@ -54,7 +54,7 @@ test('staff workspace inherits the shared Sprachtreppe theme without replacing i
   assert.deepEqual(realErrors(errors), []);
 });
 
-test('teachers only see classroom, assignments and announcements; learning routes redirect', async () => {
+test('teachers get the compact Flutter-style workspace; learning routes redirect', async () => {
   const server = createServer();
   server.addUser('teacher@school.org', PW, {role: 'teacher', approved: true, name: 'Test Teacher'});
   const {window: w, errors} = boot(server);
@@ -62,14 +62,14 @@ test('teachers only see classroom, assignments and announcements; learning route
   await wait(800);
   assert.equal(w.SP_LMS.isStaff(), true);
   const nav = await routes(w);
-  assert.deepEqual(nav, ['classroom', 'students', 'assignments', 'announcements', 'notifications', 'audit']);
+  assert.deepEqual(nav, ['dashboard', 'assignments', 'classroom', 'account']);
   assert.ok(!nav.some(r => ['home','session','review','vocab','grammar','quiz','flash','read','write','exam','progress','settings'].includes(r)));
   assert.equal(await attemptForbiddenRoute(w, 'grammar'), '#/assignments');
   assert.equal(await attemptForbiddenRoute(w, 'quiz'), '#/assignments');
   assert.ok(!realErrors(errors).length, realErrors(errors).join('\\n'));
 });
 
-test('admins see only review and LMS-management tabs, not the exercise course', async () => {
+test('admins get the compact Flutter-style workspace, not the exercise course', async () => {
   const server = createServer();
   server.addUser('admin@school.org', PW, {role: 'admin', approved: true, name: 'Test Admin'});
   const {window: w, errors} = boot(server);
@@ -77,7 +77,7 @@ test('admins see only review and LMS-management tabs, not the exercise course', 
   await wait(800);
   assert.equal(w.SP_LMS.isStaff(), true);
   const nav = await routes(w);
-  assert.deepEqual(nav, ['classroom','students','assignments','announcements','notifications','audit','teachers']);
+  assert.deepEqual(nav, ['dashboard','students','admin','account']);
   assert.ok(!nav.some(r => ['home','session','review','vocab','grammar','quiz','flash','read','write','exam','progress','settings'].includes(r)));
   assert.equal(await attemptForbiddenRoute(w, 'grammar'), '#/assignments');
   assert.equal(await attemptForbiddenRoute(w, 'session'), '#/assignments');
@@ -92,10 +92,7 @@ test('students keep the original learning tabs and LMS tabs', async () => {
   await wait(800);
   assert.equal(w.SP_LMS.isStaff(), false);
   const nav = await routes(w);
-  assert.ok(nav.includes('grammar'));
-  assert.ok(nav.includes('vocab'));
-  assert.ok(nav.includes('quiz'));
-  assert.ok(nav.includes('classroom'));
-  assert.ok(nav.includes('assignments'));
+  assert.deepEqual(nav, ['home','learn','practice','assignments','account']);
+  assert.ok(!nav.some(r => ['grammar','vocab','quiz','session','review'].includes(r)));
   assert.ok(!realErrors(errors).length, realErrors(errors).join('\\n'));
 });

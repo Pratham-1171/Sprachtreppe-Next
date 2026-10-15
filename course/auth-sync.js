@@ -130,6 +130,28 @@
     const mistakes = Object.values(S.mistakes || {}).sort((a, b) => (b.count | 0) - (a.count | 0)).slice(0, 25)
       .map(m => ({type: trunc(m.type, 30), topic: trunc(m.topic, 60), prompt: trunc(m.prompt, 240), you: trunc(m.userAnswer, 120), correct: trunc(m.correctAnswer, 120), count: m.count | 0}));
     const writing = (S.writingLog || []).slice(-15).map(w => ({t: w.t, level: w.level, title: trunc(w.title, 80), score: w.score | 0, words: w.words | 0, text: trunc(w.text, 2500)}));
+    const ownerId = (auth && auth.user && auth.user.id) || (auth && auth.profile && auth.profile.id) || '';
+    const queuedKey = 'sp_task_submissions_v1_' + ownerId;
+    const rawQueued = ownerId ? ls.get(queuedKey) : [];
+    const queued = Array.isArray(rawQueued) ? rawQueued : [];
+    // Sync a bounded batch so a long offline period cannot exceed the server payload limit.
+    const toSend = queued.slice(0, 80);
+    syncedTaskSubmissionIds = toSend.map(item => String(item && item.id || '')).filter(Boolean);
+    const queuedWriting = toSend.map(item => ({
+      t: item.t || new Date().toISOString(), level: trunc(item.level || '', 10),
+      title: trunc(item.title || 'Assignment response', 80), score: item.score | 0,
+      words: item.words | 0, text: trunc(item.text || '', 2500),
+      assignment_id: trunc(item.assignment_id || '', 80), client_id: trunc(item.client_id || item.id || '', 80),
+      kind: 'assignment'
+    }));
+    const rawTaskProgress = ownerId ? ls.get('sp_task_progress_v1_' + ownerId) : {};
+    const taskProgress = rawTaskProgress && typeof rawTaskProgress === 'object' && !Array.isArray(rawTaskProgress) ? rawTaskProgress : {};
+    const assignment_progress = Object.values(taskProgress).slice(-100).map(item => ({
+      assignment_id: trunc(item.assignment_id || '', 80), title: trunc(item.title || 'Assignment', 80),
+      skill: trunc(item.skill || 'mixed', 30), done: Math.max(0, item.done | 0),
+      correct: Math.max(0, item.correct | 0), target_count: Math.max(0, item.target_count | 0),
+      submitted: !!item.submitted, completed: !!item.completed, updated_at: item.updated_at || null
+    }));
     const sessions = (S.sessionHistory || []).slice(-30).map(s => ({date: s.date, q: s.questions | 0, ok: s.correct | 0, sec: s.duration | 0}));
     const activity = {}; days.forEach(d => { activity[d] = {a: act[d].answers | 0, c: act[d].correct | 0}; });
     const summary = {
@@ -140,11 +162,13 @@
       words_known: Object.keys(S.known || {}).length, words_seen: Object.keys(mastery).length, mastery: status,
       skills, grammar, clock_rewinds: sync.clockRewinds | 0, clock_skew_min: sync.skewMin | 0
     };
-    return {summary, mistakes, writing, sessions, activity};
+    return {summary, mistakes, writing: writing.concat(queuedWriting), sessions, activity, assignment_progress};
   }
   const newId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
 
   /* ---------------- sync ---------------- */
+  let syncedTaskSubmissionIds = [];
+
   async function syncNow(manual) {
     if (inflight) return inflight;
     inflight = (async () => {
@@ -153,7 +177,19 @@
       try {
         if (!auth.profile.approved) { await loadProfile(); if (!auth.profile.approved) { renderChip(); return {pending: true}; } }
         const t = await token();
-        const r = await http('/rest/v1/rpc/submit_progress', {method: 'POST', token: t, body: {p_payload: buildSnapshot(), p_client_id: newId()}});
+        const snapshot = buildSnapshot();
+        const r = await http('/rest/v1/rpc/submit_progress', {method: 'POST', token: t, body: {p_payload: snapshot, p_client_id: newId()}});
+        // Remove only the local task responses included in this server-accepted snapshot.
+        if (syncedTaskSubmissionIds.length && auth && auth.user && auth.user.id) {
+          const queueKey = 'sp_task_submissions_v1_' + auth.user.id;
+          const included = new Set(syncedTaskSubmissionIds);
+          const rawPending = ls.get(queueKey);
+          const pending = Array.isArray(rawPending) ? rawPending : [];
+          const remaining = pending.filter(item => !included.has(String(item && item.id || '')));
+          ls.set(queueKey, remaining);
+          syncedTaskSubmissionIds = [];
+          if (remaining.length) setTimeout(() => { if (online() && auth && isStudent()) syncNow(false).catch(() => {}); }, 1200);
+        }
         const now = Date.now(), hw = Math.max(sync.hw || 0, now);
         sync.hw = hw; sync.lastSyncLocal = hw; sync.lastOk = now; sync.lastError = null;
         sync.lastSyncServer = r.data && r.data.server_time;

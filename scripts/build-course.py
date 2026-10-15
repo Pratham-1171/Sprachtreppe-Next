@@ -8,6 +8,7 @@ src = (root / 'course/template.html').read_text(encoding='utf-8')
 base_css = (root / 'course/base.css').read_text(encoding='utf-8')
 web_css = (root / 'course/web-first.css').read_text(encoding='utf-8')
 lms_js = (root / 'course/lms-ui.js').read_text(encoding='utf-8')
+parity_js = (root / 'course/flutter-parity.js').read_text(encoding='utf-8')
 lms_mobile_css = (root / 'course/lms-mobile-fix.css').read_text(encoding='utf-8')
 app_module_files = ['ui-language.js','vocabulary-data.js','word-reference-data.js','grammar-reference-data.js','grammar-expansion.js','phrase-reference-data.js','achievement-data.js','core-engine.js','exercise-registry.js','navigation.js','views-dashboard.js','views-vocabulary.js','views-grammar.js','views-communication.js','views-practice.js','settings-boot.js']
 app_src = '\n'.join((root / 'course' / name).read_text(encoding='utf-8') for name in app_module_files)
@@ -39,7 +40,7 @@ patch_app("localStorage.removeItem(STORE.key); location.reload();", "localStorag
 patch_app("const ok = user === correct;", "const norm = s => String(s).toLowerCase().replace(/[.!?]+$/,'').replace(/\\s+/g,' ').trim(); const ok = norm(user) === norm(correct) || (item.accept || []).some(a => norm(a) === norm(user)); if(!$('#sbCheck').dataset.logged){ recordPracticeActivity('sentence', ok); $('#sbCheck').dataset.logged = '1'; }")
 patch_app("sessionState.results.push({correct:ok});", "if(window.EX) EX.record(ex, ok); sessionState.results.push({correct:ok});")
 patch_app("const correct = results.filter(r => r.ok).length;", "results.forEach(r => { recordPracticeActivity(r.q.skill || 'exam', r.ok); if(window.EX) EX.record(r.q, r.ok); }); const correct = results.filter(r => r.ok).length;")
-patch_app("connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare", "connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare, account:(window.viewAccount||viewHome), admin:(window.viewAdmin||viewHome), classroom:(window.viewClassroom||viewHome), students:(window.viewStudents||viewHome), assignments:(window.viewAssignments||viewHome), announcements:(window.viewAnnouncements||viewHome), notifications:(window.viewNotifications||viewHome), audit:(window.viewAudit||viewHome), teachers:(window.viewTeachers||viewHome)")
+patch_app("connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare", "home:(window.viewFlutterHome||viewHome), learn:(window.viewFlutterLearn||viewHome), course:(window.viewFlutterCourse||viewHome), practice:(window.viewFlutterPractice||viewQuiz), dashboard:(window.viewFlutterDashboard||viewHome), connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare, account:(window.viewAccount||viewHome), admin:(window.viewAdmin||viewHome), classroom:(window.viewClassroom||viewHome), students:(window.viewStudents||viewHome), assignments:(window.viewAssignments||viewHome), announcements:(window.viewAnnouncements||viewHome), notifications:(window.viewNotifications||viewHome), audit:(window.viewAudit||viewHome), teachers:(window.viewTeachers||viewHome)")
 src = src.replace('<title>Sprachtreppe — German A1–B1 Master Course v5.4</title>', '<title>Sprachtreppe — German A1–B1</title>')
 src = src.replace('<title>German A1–B1 · Offline Master Course v5.3</title>', '<title>Sprachtreppe — German A1–B1</title>')
 src = src.replace('A1→B1 · v5.4', 'A1→B1 · v8')
@@ -93,7 +94,7 @@ src = src.replace('</head>', '<style>' + theme + '</style><style id="spWebFirst"
 patch_app("$('#themeBtn').onclick =", cfg_js + '\n'.join(parts) + "\n$('#themeBtn').onclick =", 1)
 src = src.replace('<!-- COURSE_APP_SCRIPT -->', '<script>' + app_src + '</script>', 1)
 i = src.rindex('</body>')
-src = src[:i] + '<style id="spLmsMobileFix">' + lms_mobile_css + '</style><script>' + shim + '</script><script>' + lms_js + '</script>' + src[i:]
+src = src[:i] + '<style id="spLmsMobileFix">' + lms_mobile_css + '</style><script>' + shim + '</script><script>' + lms_js + '</script><script>' + parity_js + '</script>' + src[i:]
 out = Path(os.environ.get('SP_OUT_DIR') or (root / 'www'))
 out.mkdir(parents=True, exist_ok=True)
 (out / 'index.html').write_text(src, encoding='utf-8')

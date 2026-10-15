@@ -17,11 +17,39 @@ function theme(){if(document.getElementById('spTheme'))return;const s=document.c
 function shell(el,title,sub,body){el.innerHTML=`<div class="lms-wrap"><div class="lms-head"><div><h2>${title}</h2><p class="sub">${sub||''}</p></div><span class="lms-role">${admin()?'ADMIN':teacher()?'TEACHER':'STUDENT'}</span></div>${body}</div>`}
 const card=x=>`<div class="card">${x}</div>`;
 const msg=(x,ok)=>`<div class="lms-msg ${ok?'ok':'bad'}">${esc(x)}</div>`;
-const BASE_NAV=typeof NAV==='undefined'?[]:NAV.slice();
-const N={classroom:['classroom','nav_classroom'],students:['students','nav_students'],assignments:['assignments','nav_assignments'],announcements:['announcements','nav_announcements'],notifications:['notifications','nav_notifications'],audit:['audit','nav_audit'],teachers:['teachers','nav_teachers']};
-function staffKeys(){return ['classroom','students','assignments','announcements','notifications','audit'].concat(admin()?['teachers']:[])}
-function nav(){if(typeof NAV==='undefined')return;let entries;if(staff()){entries=staffKeys().map(k=>N[k]);document.body.classList.add('sp-staff-mode')}else{entries=BASE_NAV.slice();['classroom','assignments','announcements','notifications'].forEach(k=>{if(!entries.some(n=>n[0]===k))entries.push(N[k])});document.body.classList.remove('sp-staff-mode')}NAV.splice(0,NAV.length,...entries);if(typeof UI!=='undefined'){UI.en.nav_classroom='👥 Classes';UI.en.nav_students='👤 Students';UI.en.nav_assignments='📝 Assignments';UI.en.nav_announcements='📢 News';UI.en.nav_notifications='🔔 Notifications';UI.en.nav_audit='🛡️ Audit';UI.en.nav_teachers='👨‍🏫 Teachers';}if(typeof buildNav==='function')buildNav()}
-window.SP_LMS={isStaff:staff,canVisit:route=>!staff()||staffKeys().includes(route)};
+const N={
+ dashboard:['dashboard','nav_dashboard'], account:['account','nav_account'], admin:['admin','nav_admin'],
+ classroom:['classroom','nav_classroom'], students:['students','nav_students'], assignments:['assignments','nav_assignments'],
+ announcements:['announcements','nav_announcements'], notifications:['notifications','nav_notifications'],
+ audit:['audit','nav_audit'], teachers:['teachers','nav_teachers']
+};
+function staffKeys(){
+  return ['dashboard','assignments','classroom','students','announcements','notifications','audit']
+    .concat(admin()?['admin','teachers']:[]);
+}
+function nav(){
+  if(typeof NAV==='undefined')return;
+  let entries;
+  if(admin()) entries=[N.dashboard,N.students,N.admin,N.account];
+  else if(teacher()) entries=[N.dashboard,N.assignments,N.classroom,N.account];
+  else entries=[['home','nav_home'],['learn','nav_learn'],['practice','nav_practice'],['assignments','nav_assignments'],N.account];
+  document.body.classList.toggle('sp-staff-mode',staff());
+  if(typeof UI!=='undefined'&&UI.en){
+    Object.assign(UI.en,{
+      nav_home:'Home',nav_learn:'Learn',nav_practice:'Practice',nav_account:'Profile',
+      nav_dashboard:'Dashboard',nav_classroom:'Classes',nav_students:'Students',
+      nav_admin:'Admin',nav_assignments:admin()?'Manage work':'Tasks',
+      nav_announcements:'News',nav_notifications:'Notifications',nav_audit:'Audit',nav_teachers:'Teachers'
+    });
+  }
+  NAV.splice(0,NAV.length,...entries);
+  if(typeof buildNav==='function')buildNav();
+}
+window.SP_LMS={
+  isStaff:staff, isAdmin:admin, isTeacher:teacher, canVisit:route=>!staff()||staffKeys().includes(route),
+  api, rpc, profile, notificationCount,
+  userId:()=>((st().auth||{}).user||{}).id||profile().id||null
+};
 async function notificationCount(){try{const rows=await api('/rest/v1/notifications?select=id,title,body,kind,link,read_at,created_at&order=created_at.desc&limit=30');return rows||[]}catch{return[]}}
 async function renderNotifications(el){theme();nav();try{const rows=await notificationCount();shell(el,'🔔 Notifications',`${rows.filter(x=>!x.read_at).length} unread`,rows.length?`<div class="lms-list">${rows.map(n=>`<button class="lms-item ${n.read_at?'':'lms-unread'}" data-nid="${id(n.id)}" data-link="${id(n.link||'#/notifications')}"><div style="font-weight:750;text-align:left">${esc(n.title)}</div><div class="lms-meta" style="text-align:left">${esc(n.body)}</div><div class="lms-meta" style="text-align:left">${fmt(n.created_at)}</div></button>`).join('')}</div>`:'<div class="lms-empty">No notifications yet.</div>');el.querySelectorAll('[data-nid]').forEach(b=>b.onclick=async()=>{try{await rpc('mark_notification_read',{p_id:+b.dataset.nid})}catch{}if(b.dataset.link)location.hash=b.dataset.link.replace(/^#\//,'#/')})}catch(e){shell(el,'🔔 Notifications','',card(msg(e.message,false)))}}
 window.viewNotifications=renderNotifications;
@@ -42,7 +70,7 @@ async function renderClassroom(el){theme();nav();if(!staff()){try{const d=await 
 window.viewClassroom=renderClassroom;
 let lastRole='';
 let lastNoticeRefresh=0;
-function enforceStaffRoute(){if(!staff())return;const current=(location.hash||'#/home').slice(2).split('?')[0]||'home';if(current==='account'||current==='settings'||(admin()&&current==='admin'))return;if(!staffKeys().includes(current))location.hash='#/students'}
+function enforceStaffRoute(){if(!staff())return;const current=(location.hash||'#/dashboard').slice(2).split('?')[0]||'dashboard';if(current==='account'||current==='settings'||(admin()&&current==='admin'))return;if(!staffKeys().includes(current))location.hash='#/dashboard'}
 async function chrome(){theme();const role=admin()?'admin':teacher()?'teacher':'student';if(role!==lastRole){lastRole=role;nav();enforceStaffRoute()}enforceStaffRoute();if(st().auth?.access_token&&Date.now()-lastNoticeRefresh>30000){lastNoticeRefresh=Date.now();try{const ns=await notificationCount();const unread=ns.filter(n=>!n.read_at).length;const b=document.querySelector('nav button[data-route="notifications"]');if(b)b.textContent=`🔔 Notifications${unread?' ('+unread+')':''}`}catch{}}}
 window.addEventListener('hashchange',enforceStaffRoute);
 chrome();setInterval(chrome,400);setInterval(()=>{if(st().auth?.access_token&&typeof location!=='undefined'&&location.hash.includes('notifications'))renderNotifications(document.getElementById('view'))},30000);
