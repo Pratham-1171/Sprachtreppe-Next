@@ -413,10 +413,14 @@
     const b = document.getElementById('spAuth'); if (b) b.remove();
     document.body.classList.remove('sp-locked');
     startServices();
-    // Re-render the browser dashboard after OTP unlock so the first visible screen matches the Flutter shell.
-    if (location.hash === '#/home' && typeof window.viewFlutterHome === 'function') {
-      const courseView = document.getElementById('view');
-      if (courseView) window.viewFlutterHome(courseView);
+    // Land each approved role on its matching Flutter-style home screen after OTP unlock.
+    if (location.hash === '#/home') {
+      if ((isAdmin() || isTeacher()) && typeof window.viewFlutterDashboard === 'function') {
+        location.hash = '#/dashboard';
+      } else if (typeof window.viewFlutterHome === 'function') {
+        const courseView = document.getElementById('view');
+        if (courseView) window.viewFlutterHome(courseView);
+      }
     }
     if (isStudent() && auth.profile.approved) syncNow(true).catch(() => {});
   }
