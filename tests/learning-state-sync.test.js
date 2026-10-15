@@ -54,6 +54,18 @@ test('state merge preserves mastered vocabulary, grammar completion, mistakes an
   assert.deepEqual(merged.practiceActivity['2026-10-15'].answers, 7);
 });
 
+test('current streak follows the newest study date while longest streak never shrinks', () => {
+  const {window: w} = boot(createServer());
+  const merge = w.SP_AUTH.mergeLearningStates;
+  const merged = merge(
+    {streak: {current: 8, longest: 8, lastStudyDate: '2026-10-10'}},
+    {streak: {current: 2, longest: 10, lastStudyDate: '2026-10-15'}}
+  );
+  assert.equal(merged.streak.current, 2, 'an updated streak is allowed to reset after a gap');
+  assert.equal(merged.streak.longest, 10, 'the best-ever streak must be preserved');
+  assert.equal(merged.streak.lastStudyDate, '2026-10-15');
+});
+
 test('a second device downloads and merges the saved course learning state on sign-in', async () => {
   const server = createServer();
   const student = server.addUser('cross-device@school.org', PW, {
