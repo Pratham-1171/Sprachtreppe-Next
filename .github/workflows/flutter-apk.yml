@@ -1,0 +1,55 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'flutter_shell/**'
+      - '.github/workflows/flutter-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  flutter-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create Android project shell
+        working-directory: flutter_shell
+        run: flutter create --platforms=android --org com.sprachtreppe .
+
+      - name: Restore tracked Dart app files
+        run: |
+          test -f flutter_shell/lib/main.dart
+          test -f flutter_shell/pubspec.yaml
+
+      - name: Get dependencies
+        working-directory: flutter_shell
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: flutter_shell
+        run: flutter analyze
+
+      - name: Test
+        working-directory: flutter_shell
+        run: flutter test
+
+      - name: Build debug APK
+        working-directory: flutter_shell
+        run: flutter build apk --debug
+
+      - name: Upload Flutter APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sprachtreppe-Flutter-APK
+          path: flutter_shell/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
