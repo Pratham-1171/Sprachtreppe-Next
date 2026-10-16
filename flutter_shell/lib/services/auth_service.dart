@@ -59,32 +59,14 @@ class AuthService {
     return appUser;
   }
 
-  Future<void> sendCode({
+  Future<AppUser> signIn({
     required String email,
-    required bool allowNewStudent,
+    required String password,
   }) async {
-    await _client.auth.signInWithOtp(
+    await _client.auth.signInWithPassword(
       email: email.trim(),
-      shouldCreateUser: allowNewStudent,
+      password: password,
     );
-  }
-
-  Future<void> verifyOtpOnly({
-    required String email,
-    required String code,
-  }) async {
-    await _client.auth.verifyOTP(
-      email: email.trim(),
-      token: code.trim(),
-      type: OtpType.email,
-    );
-  }
-
-  Future<AppUser> verifyCode({
-    required String email,
-    required String code,
-  }) async {
-    await verifyOtpOnly(email: email, code: code);
     try {
       return await loadCurrentUser();
     } catch (_) {
@@ -93,17 +75,31 @@ class AuthService {
     }
   }
 
-  Future<void> completeStudentRegistration({required String fullName}) async {
-    await _client.rpc(
-      'complete_student_signup',
-      params: {'p_full_name': fullName.trim()},
-    );
-  }
+  Future<void> createStudentAccount({
+    required String fullName,
+    required String email,
+    required String password,
+  }) async {
+    final name = fullName.trim();
+    if (name.isEmpty) {
+      throw const AuthException('Full name is required.');
+    }
 
-  // Kept for the existing profile security screen. Login itself is OTP-only;
-  // this does not add password-based sign-in back to the app.
-  Future<void> sendPasswordReset(String email) async {
-    await _client.auth.resetPasswordForEmail(email.trim());
+    final response = await _client.auth.signUp(
+      email: email.trim(),
+      password: password,
+      data: {'full_name': name},
+    );
+
+    // Sprachtreppe uses direct email+password accounts. Email confirmation is
+    // intentionally not part of this flow, so signup should return a session.
+    if (response.session == null) {
+      throw const AuthException(
+        'Account created, but email confirmation is enabled in Supabase. Disable Confirm email in Authentication settings, then create the account again.',
+      );
+    }
+
+    await _client.auth.signOut();
   }
 
   Future<void> signOut() async {
