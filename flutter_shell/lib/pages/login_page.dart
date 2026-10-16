@@ -19,13 +19,15 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   _AuthTab _tab = _AuthTab.student;
   _StudentMode _studentMode = _StudentMode.signIn;
-  bool _codeSent = false;
   bool _loading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
-  final _codeController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool get _creatingStudent => _tab == _AuthTab.student && _studentMode == _StudentMode.create;
 
@@ -33,77 +35,37 @@ class _LoginPageState extends State<LoginPage> {
   void dispose() {
     _emailController.dispose();
     _nameController.dispose();
-    _codeController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _sendCode() async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      await widget.authService.sendCode(
-        email: _emailController.text,
-        allowNewStudent: _creatingStudent,
-      );
-      if (!mounted) return;
-      setState(() => _codeSent = true);
-      _showMessage('A 6-digit code was sent to ${_emailController.text.trim()}.');
-    } on AuthException catch (error) {
-      if (mounted) _showMessage(error.message, error: true);
-    } catch (_) {
-      if (mounted) _showMessage('Could not send the code. Please try again.', error: true);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _verify() async {
-    final code = _codeController.text.trim();
-    if (code.length != 6) {
-      _showMessage('Enter the 6-digit code from your email.', error: true);
-      return;
-    }
-    if (_creatingStudent && _nameController.text.trim().isEmpty) {
-      _showMessage('Enter your full name.', error: true);
-      return;
-    }
-
-    setState(() => _loading = true);
-    try {
       if (_creatingStudent) {
-        await widget.authService.verifyOtpOnly(
-          email: _emailController.text,
-          code: code,
-        );
-        await widget.authService.completeStudentRegistration(
+        await widget.authService.createStudentAccount(
           fullName: _nameController.text,
-        );
-        await widget.authService.signOut();
-        if (mounted) {
-          setState(() {
-            _codeSent = false;
-            _codeController.clear();
-            _studentMode = _StudentMode.signIn;
-          });
-          _showMessage('Account created. An administrator must approve it before you can sign in.');
-        }
-      } else {
-        final user = await widget.authService.verifyCode(
           email: _emailController.text,
-          code: code,
+          password: _passwordController.text,
+        );
+        if (!mounted) return;
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+        setState(() => _studentMode = _StudentMode.signIn);
+        _showMessage('Account created. An administrator must approve it before you can sign in.');
+      } else {
+        final user = await widget.authService.signIn(
+          email: _emailController.text,
+          password: _passwordController.text,
         );
         if (mounted) widget.onSignedIn(user);
       }
     } on AuthException catch (error) {
       if (mounted) _showMessage(error.message, error: true);
-      try {
-        await widget.authService.signOut();
-      } catch (_) {}
-    } catch (error) {
-      if (mounted) _showMessage('Could not complete this request. Please try again.', error: true);
-      try {
-        await widget.authService.signOut();
-      } catch (_) {}
+    } catch (_) {
+      if (mounted) _showMessage('Could not complete this request. Please check your details and try again.', error: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -112,17 +74,17 @@ class _LoginPageState extends State<LoginPage> {
   void _switchTab(_AuthTab tab) {
     setState(() {
       _tab = tab;
-      _codeSent = false;
-      _codeController.clear();
-      if (tab == _AuthTab.admin) _studentMode = _StudentMode.signIn;
+      _studentMode = _StudentMode.signIn;
+      _passwordController.clear();
+      _confirmPasswordController.clear();
     });
   }
 
   void _switchStudentMode(_StudentMode mode) {
     setState(() {
       _studentMode = mode;
-      _codeSent = false;
-      _codeController.clear();
+      _passwordController.clear();
+      _confirmPasswordController.clear();
     });
   }
 
@@ -133,6 +95,12 @@ class _LoginPageState extends State<LoginPage> {
         backgroundColor: error ? Theme.of(context).colorScheme.error : null,
       ),
     );
+  }
+
+  String? _validatePassword(String? value) {
+    final password = value ?? '';
+    if (password.length < 8) return 'Use at least 8 characters';
+    return null;
   }
 
   @override
@@ -156,8 +124,11 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   Icon(Icons.auto_stories_rounded, size: 64, color: theme.colorScheme.primary),
                   const SizedBox(height: 18),
-                  Text('Sprachtreppe', textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    'Sprachtreppe',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 6),
                   Text('German A1–B1', textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
                   const SizedBox(height: 28),
@@ -192,10 +163,10 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(height: 8),
                             Text(
                               _tab == _AuthTab.admin
-                                  ? 'Teachers and administrators sign in with their registered email. Only an approved account can enter this area.'
+                                  ? 'Approved teachers and administrators sign in with their registered email and password.'
                                   : _creatingStudent
-                                      ? 'Students can create their own account. It starts as pending until an administrator approves it.'
-                                      : 'Enter your registered email. We will send a one-time 6-digit login code.',
+                                      ? 'Create a student account with your email and a password. Your account starts as pending until an administrator approves it.'
+                                      : 'Sign in with your registered email and password.',
                               style: theme.textTheme.bodyMedium,
                             ),
                             const SizedBox(height: 20),
@@ -218,7 +189,6 @@ class _LoginPageState extends State<LoginPage> {
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               textInputAction: TextInputAction.next,
-                              enabled: !_codeSent,
                               autofillHints: const [AutofillHints.email],
                               decoration: const InputDecoration(
                                 labelText: 'Email',
@@ -229,43 +199,59 @@ class _LoginPageState extends State<LoginPage> {
                                 return email.isEmpty || !email.contains('@') ? 'Enter a valid email address' : null;
                               },
                             ),
-                            if (_codeSent) ...[
+                            const SizedBox(height: 14),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              textInputAction: _creatingStudent ? TextInputAction.next : TextInputAction.done,
+                              autofillHints: _creatingStudent
+                                  ? const [AutofillHints.newPassword]
+                                  : const [AutofillHints.password],
+                              onFieldSubmitted: _creatingStudent ? null : (_) => _submit(),
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                  icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                                ),
+                              ),
+                              validator: _validatePassword,
+                            ),
+                            if (_creatingStudent) ...[
                               const SizedBox(height: 14),
                               TextFormField(
-                                controller: _codeController,
-                                keyboardType: TextInputType.number,
+                                controller: _confirmPasswordController,
+                                obscureText: _obscureConfirmPassword,
                                 textInputAction: TextInputAction.done,
-                                maxLength: 6,
-                                onFieldSubmitted: (_) => _verify(),
-                                decoration: const InputDecoration(
-                                  labelText: '6-digit code',
-                                  prefixIcon: Icon(Icons.password_outlined),
-                                  counterText: '',
+                                autofillHints: const [AutofillHints.newPassword],
+                                onFieldSubmitted: (_) => _submit(),
+                                decoration: InputDecoration(
+                                  labelText: 'Confirm password',
+                                  prefixIcon: const Icon(Icons.lock_reset_outlined),
+                                  suffixIcon: IconButton(
+                                    tooltip: _obscureConfirmPassword ? 'Show password' : 'Hide password',
+                                    onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                                    icon: Icon(_obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                                  ),
                                 ),
+                                validator: (value) {
+                                  if (value != _passwordController.text) return 'Passwords do not match';
+                                  return null;
+                                },
                               ),
                             ],
                             const SizedBox(height: 20),
                             SizedBox(
                               height: 50,
                               child: FilledButton(
-                                onPressed: _loading ? null : (_codeSent ? _verify : _sendCode),
+                                onPressed: _loading ? null : _submit,
                                 child: _loading
                                     ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                                    : Text(_codeSent ? 'Verify code' : 'Send code'),
+                                    : Text(_creatingStudent ? 'Create account' : 'Login'),
                               ),
                             ),
-                            if (_codeSent) ...[
-                              const SizedBox(height: 8),
-                              TextButton(
-                                onPressed: _loading
-                                    ? null
-                                    : () => setState(() {
-                                        _codeSent = false;
-                                        _codeController.clear();
-                                      }),
-                                child: const Text('Use a different email'),
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -274,8 +260,10 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 16),
                   Text(
                     _tab == _AuthTab.admin
-                        ? 'Teachers are promoted by an administrator after their student account is created.'
-                        : 'No passwords are stored or required. Login uses a one-time email code.',
+                        ? 'Password recovery is not available. Contact the system administrator if access needs to be changed.'
+                        : _creatingStudent
+                            ? 'Use a strong password and keep it safe. An administrator must approve your account before login.'
+                            : 'Password recovery is not available in Sprachtreppe.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall,
                   ),
