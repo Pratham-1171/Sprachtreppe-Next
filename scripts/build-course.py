@@ -60,15 +60,12 @@ patch_app("if(p.store) localStorage.setItem(STORE.key, JSON.stringify(p.store));
 patch_app("localStorage.removeItem(STORE.key); location.reload();", "localStorage.removeItem(STORE.key); markSystemEvent('reset'); location.reload();")
 
 # ---- v8 engine hooks ----
-# sentence builder: case-insensitive, accepts every valid word order supplied by the generator
 patch_app("const ok = user === correct;",
         "const norm = s => String(s).toLowerCase().replace(/[.!?]+$/,'').replace(/\\s+/g,' ').trim(); "
         "const ok = norm(user) === norm(correct) || (item.accept || []).some(a => norm(a) === norm(user)); "
         "if(!$('#sbCheck').dataset.logged){ recordPracticeActivity('sentence', ok); $('#sbCheck').dataset.logged = '1'; }")
-# adaptive statistics for generated grammar exercises (session + exam)
 patch_app("sessionState.results.push({correct:ok});", "if(window.EX) EX.record(ex, ok); sessionState.results.push({correct:ok});")
 patch_app("const correct = results.filter(r => r.ok).length;", "results.forEach(r => { recordPracticeActivity(r.q.skill || 'exam', r.ok); if(window.EX) EX.record(r.q, r.ok); }); const correct = results.filter(r => r.ok).length;")
-# new routes (account / admin); admin view is only reachable for verified admins and RLS protects the data anyway
 patch_app("connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare", "connectors:viewConnectors, collocations:viewCollocations, compare:viewCompare, account:(window.viewAccount||viewHome), admin:(window.viewAdmin||viewHome)")
 src = src.replace('<title>Sprachtreppe — German A1–B1 Master Course v5.4</title>', '<title>Sprachtreppe — German A1–B1</title>')
 src = src.replace('<title>German A1–B1 · Offline Master Course v5.3</title>', '<title>Sprachtreppe — German A1–B1</title>')
@@ -103,15 +100,31 @@ else:
                      'or set ALLOW_LOCAL_MODE=1 to build a practice-only app without login.')
 
 # ---- bundle ----
+# Password recovery is intentionally not bundled. Sprachtreppe has create + login only.
 parts = [(root / 'course' / f).read_text(encoding='utf-8') for f in
-         ['enhancements.js', 'content-expansion.js', 'german-core.js', 'exercises-v8.js', 'reading-writing-v8.js', 'engine-v8.js', 'password-recovery.js', 'auth-sync.js']]
-# Admin login uses a six-digit email OTP. Do not send the old German_A1-B1
-# redirect URL: it belongs to the previous project and can make Supabase Auth
-# reject the request or fail while trying to send the email.
-otp_old = "await http('/auth/v1/otp?redirect_to=' + encodeURIComponent('https://pratham-1171.github.io/German_A1-B1/'), {method: 'POST', body: {email: String(email).trim(), create_user: false}});"
-otp_new = "await http('/auth/v1/otp', {method: 'POST', body: {email: String(email).trim(), create_user: false}});"
-if otp_old in parts[-1]:
-    parts[-1] = parts[-1].replace(otp_old, otp_new, 1)
+         ['enhancements.js', 'content-expansion.js', 'german-core.js', 'exercises-v8.js', 'reading-writing-v8.js', 'engine-v8.js', 'auth-sync.js']]
+
+auth = parts[-1]
+# The source file historically contained an optional admin email-code path and
+# password-recovery UI. Strip those paths from the shipped bundle so the web app
+# has exactly one authentication method: email + password.
+auth = auth.replace("let mode = 'in', who = 'student', method = 'password', codeSent = false, resendAt = 0;",
+                    "let mode = 'in', who = 'student', method = 'password';")
+auth = auth.replace("const adminCode = who === 'admin' && method === 'code';", "const adminCode = false;")
+auth = auth.replace("method = who === 'admin' ? 'code' : 'password'; codeSent = false; if (who === 'admin') mode = 'in';",
+                    "method = 'password'; if (who === 'admin') mode = 'in';")
+auth = auth.replace("${who === 'student' ? `<a href=\"#\" id=\"spSwitch\">${mode === 'up' ? 'I already have an account' : 'Create account'}</a>` : `<a href=\"#\" id=\"spMethod\">${adminCode ? 'Use password instead' : 'Use an emailed code instead'}</a>`}\n          ${adminCode ? (codeSent ? '<a href=\"#\" id=\"spResend\">Send a new code</a>' : '<span></span>') : '<a href=\"#\" id=\"spForgot\">Forgot password?</a>'}",
+                    "${who === 'student' ? `<a href=\"#\" id=\"spSwitch\">${mode === 'up' ? 'I already have an account' : 'Create account'}</a>` : '<span></span>'}")
+# Remove the now-unused OTP/recovery event handlers from the generated bundle.
+auth = re.sub(r"\n\s*const mt = box\.querySelector\('#spMethod'\);[\s\S]*?\n\s*};\n\s*const rs = box\.querySelector\('#spResend'\);[\s\S]*?\n\s*};", "", auth, count=1)
+auth = re.sub(r"\n\s*const fg = box\.querySelector\('#spForgot'\);[\s\S]*?\n\s*};", "", auth, count=1)
+auth = re.sub(r"\n\s*async function sendCode\(email\) \{[\s\S]*?\n\s*\}\n\s*async function verifyCode\(email, code\) \{[\s\S]*?\n\s*\}\n", "\n", auth, count=1)
+parts[-1] = auth
+
+# Keep the normal password sign-in/signup flow and remove all OTP references from
+# the built HTML as a safety check.
+if '/auth/v1/otp' in auth or '/auth/v1/verify' in auth or '/auth/v1/recover' in auth or 'Forgot password?' in auth:
+    raise SystemExit('Password-only auth cleanup failed: OTP or recovery code remains in the web bundle.')
 theme = (root / 'course/theme.css').read_text(encoding='utf-8')
 shim = (root / 'course/native-shim.js').read_text(encoding='utf-8')
 cfg_js = 'window.SP_CONFIG=' + json.dumps(config) + ';\n'
@@ -125,7 +138,6 @@ src = src[:i] + '<script>' + shim + '</script>' + src[i:]
 out = Path(os.environ.get('SP_OUT_DIR') or (root / 'www'))
 out.mkdir(parents=True, exist_ok=True)
 (out / 'index.html').write_text(src, encoding='utf-8')
-# service-worker cache name changes with every build so updates reach installed apps
 build_id = hashlib.sha1(src.encode('utf-8')).hexdigest()[:10]
 sw = (root / 'web-assets/sw.js').read_text().replace('__BUILD__', build_id)
 (out / 'sw.js').write_text(sw, encoding='utf-8')
