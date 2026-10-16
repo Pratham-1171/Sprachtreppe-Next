@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_role.dart';
 import '../models/app_user.dart';
-import '../services/auth_service.dart';
 import '../services/offline_sync_service.dart';
 import '../services/progress_service.dart';
 import 'notification_center_page.dart';
@@ -19,15 +18,12 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  late final AuthService _authService;
   Future<ProgressStats>? _progressFuture;
   Future<DateTime?>? _lastSyncFuture;
-  bool _resettingPassword = false;
 
   @override
   void initState() {
     super.initState();
-    _authService = AuthService(Supabase.instance.client);
     _loadLocalState();
   }
 
@@ -58,37 +54,6 @@ class _ProfilePageState extends State<ProfilePage> {
         ).loadLastSyncAt();
       });
     }
-  }
-
-  Future<void> _sendPasswordReset() async {
-    final email = Supabase.instance.client.auth.currentUser?.email?.trim();
-    if (email == null || email.isEmpty) {
-      _message('No email address is available for this signed-in account.', error: true);
-      return;
-    }
-
-    setState(() => _resettingPassword = true);
-    try {
-      await _authService.sendPasswordReset(email);
-      if (mounted) _message('If the account exists, a password reset email has been sent.');
-    } on AuthException catch (error) {
-      if (mounted) _message(error.message, error: true);
-    } catch (_) {
-      if (mounted) {
-        _message('Could not send the reset email. Connect to the internet and try again.', error: true);
-      }
-    } finally {
-      if (mounted) setState(() => _resettingPassword = false);
-    }
-  }
-
-  void _message(String text, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text),
-        backgroundColor: error ? Theme.of(context).colorScheme.error : null,
-      ),
-    );
   }
 
   @override
@@ -132,7 +97,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Your password is never stored by this screen.',
+                        'This account uses email and password sign-in.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -184,35 +149,16 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ],
         const SizedBox(height: 18),
-        Text('Account security', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 8),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Reset your password by email. You need an internet connection to request a reset link.',
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _resettingPassword || email?.isNotEmpty != true
-                        ? null
-                        : _sendPasswordReset,
-                    icon: _resettingPassword
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.lock_reset_outlined),
-                    label: Text(_resettingPassword ? 'Sending reset email…' : 'Send password reset email'),
-                  ),
-                ),
+                Text('Account access', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 8),
+                const Text('Login uses your registered email address and password. Password recovery is intentionally unavailable in Sprachtreppe.'),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: TextButton.icon(
