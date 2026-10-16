@@ -105,6 +105,13 @@ else:
 # ---- bundle ----
 parts = [(root / 'course' / f).read_text(encoding='utf-8') for f in
          ['enhancements.js', 'content-expansion.js', 'german-core.js', 'exercises-v8.js', 'reading-writing-v8.js', 'engine-v8.js', 'password-recovery.js', 'auth-sync.js']]
+# Admin login uses a six-digit email OTP. Do not send the old German_A1-B1
+# redirect URL: it belongs to the previous project and can make Supabase Auth
+# reject the request or fail while trying to send the email.
+otp_old = "await http('/auth/v1/otp?redirect_to=' + encodeURIComponent('https://pratham-1171.github.io/German_A1-B1/'), {method: 'POST', body: {email: String(email).trim(), create_user: false}});"
+otp_new = "await http('/auth/v1/otp', {method: 'POST', body: {email: String(email).trim(), create_user: false}});"
+if otp_old in parts[-1]:
+    parts[-1] = parts[-1].replace(otp_old, otp_new, 1)
 theme = (root / 'course/theme.css').read_text(encoding='utf-8')
 shim = (root / 'course/native-shim.js').read_text(encoding='utf-8')
 cfg_js = 'window.SP_CONFIG=' + json.dumps(config) + ';\n'
