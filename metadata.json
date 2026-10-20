@@ -1,0 +1,8 @@
+{
+  "name": "Sprachtreppe",
+  "description": "Comprehensive German A1–B1 learning platform with interactive vocabulary, grammar reference, sentence builder, SRS practice, and exam preparation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
