@@ -222,4 +222,18 @@ begin
 end;
 $function$
 
+
+-- Recompute stored summaries using the corrected function immediately.
+do $migration$
+declare
+  v_user_id uuid;
+begin
+  for v_user_id in
+    select user_id from public.learning_state
+  loop
+    perform private.refresh_learning_state_aggregates(v_user_id);
+  end loop;
+end;
+$migration$;
+
 commit;
