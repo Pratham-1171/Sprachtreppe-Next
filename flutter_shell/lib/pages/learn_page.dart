@@ -49,7 +49,7 @@ class _LearnPageState extends State<LearnPage> {
           child: IndexedStack(
             index: _section,
             children: [
-              const CoursePage(),
+              CoursePage(userId: widget.userId),
               VocabularyPage(userId: widget.userId),
               GrammarPage(userId: widget.userId),
             ],
