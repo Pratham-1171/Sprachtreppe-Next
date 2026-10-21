@@ -2,7 +2,9 @@ name: Flutter Android
 
 on:
   push:
-    branches: [flutter-shell]
+    branches:
+      - flutter-shell
+      - "improve/**"
   workflow_dispatch:
 
 jobs:
@@ -13,7 +15,7 @@ jobs:
         working-directory: flutter_shell
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -21,6 +23,36 @@ jobs:
           cache: true
       - name: Generate Android platform files
         run: flutter create --platforms=android --no-pub .
+      - name: Pin the Flutter APK application ID
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          gradle = Path("android/app/build.gradle.kts")
+          source = gradle.read_text(encoding="utf-8")
+          # Keep this Flutter app installable as an update to prior Flutter-shell
+          # builds. It deliberately remains separate from the older Capacitor app.
+          package_id = "com.example.sprachtreppe_flutter"
+          source, namespace_count = re.subn(
+              r'namespace\\s*=\\s*"[^"]+"',
+              f'namespace = "{package_id}"',
+              source,
+              count=1,
+          )
+          source, application_count = re.subn(
+              r'applicationId\\s*=\\s*"[^"]+"',
+              f'applicationId = "{package_id}"',
+              source,
+              count=1,
+          )
+          if namespace_count != 1 or application_count != 1:
+              raise SystemExit(
+                  "Could not safely pin the generated Flutter namespace/application ID."
+              )
+          gradle.write_text(source, encoding="utf-8")
+          print(f"Flutter APK application ID pinned to {package_id}")
+          PY
       - name: Ensure Android Internet permission
         run: |
           python3 - <<'PY'
@@ -136,9 +168,11 @@ jobs:
       - name: Test
         run: flutter test
       - name: Build APK
-        run: flutter build apk --release
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+        run: flutter build apk --release --build-name 1.0.2 --build-number "${GITHUB_RUN_NUMBER}"
+      - name: Upload APK and resolved dependency lockfile
+        uses: actions/upload-artifact@v5
         with:
           name: sprachtreppe-flutter-apk
-          path: flutter_shell/build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            flutter_shell/build/app/outputs/flutter-apk/app-release.apk
+            flutter_shell/pubspec.lock
