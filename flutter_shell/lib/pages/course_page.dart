@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../models/course_module.dart';
+import 'grammar_page.dart';
 import '../services/course_service.dart';
 
 class CoursePage extends StatefulWidget {
-  const CoursePage({super.key});
+  const CoursePage({super.key, required this.userId});
+
+  final String userId;
 
   @override
   State<CoursePage> createState() => _CoursePageState();
@@ -49,7 +52,7 @@ class _CoursePageState extends State<CoursePage> {
                 showSelectedIcon: false,
               ),
               const SizedBox(height: 16),
-              ..._filtered.map((module) => _ModuleCard(module: module)),
+              ..._filtered.map((module) => _ModuleCard(module: module, userId: widget.userId)),
               const SizedBox(height: 8),
               Card(
                 child: Padding(
@@ -77,9 +80,67 @@ class _CoursePageState extends State<CoursePage> {
 }
 
 class _ModuleCard extends StatelessWidget {
-  const _ModuleCard({required this.module});
+  const _ModuleCard({required this.module, required this.userId});
 
   final CourseModule module;
+  final String userId;
+
+  void _openTopic(BuildContext context, String topic) {
+    final query = _grammarQueryForTopic(topic);
+    if (query == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('A dedicated Flutter lesson for "$topic" is not available yet. Showing the current ${module.level} lesson library.'),
+        ),
+      );
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text('${module.level} grammar')),
+          body: GrammarPage(
+            userId: userId,
+            initialLevel: module.level,
+            initialQuery: query ?? '',
+          ),
+        ),
+      ),
+    );
+  }
+
+  String? _grammarQueryForTopic(String topic) {
+    final value = topic.toLowerCase();
+    if (value.contains('sein') && value.contains('haben')) return 'sein & haben';
+    if (value.contains('personal pronouns') || value.contains('verb endings')) {
+      return 'Präsens (regular)';
+    }
+    if (value.contains('articles') || value.contains('nominative')) return 'Articles';
+    if (value.contains('accusative')) return 'Akkusativ';
+    if (value.contains('dative')) return 'Dativ';
+    if (value.contains('modal verbs') && value.contains('präteritum')) {
+      return 'Modal verbs in Präteritum';
+    }
+    if (value.contains('modal verbs')) return 'Modal verbs';
+    if (value.contains('questions') && value.contains('word order')) return 'Word order';
+    if (value.contains('word order')) return 'Word order';
+    if (value.contains('perfekt')) return 'Perfekt';
+    if (value.contains('weil')) return 'weil';
+    if (value.contains('dass')) return 'dass';
+    if (value.contains('wenn') || value.contains('als')) return 'als vs. wenn';
+    if (value.contains('indirect') && value.contains('question')) return 'Indirect W-questions';
+    if (value.contains('deshalb')) return 'deshalb';
+    if (value.contains('trotzdem')) return 'trotzdem';
+    if (value.contains('konjunktiv ii') && module.level == 'B1') {
+      return 'Konjunktiv II hypothetical';
+    }
+    if (value.contains('konjunktiv ii') || value.contains('polite') || value.contains('requests')) {
+      return 'könnte';
+    }
+    if (value.contains('adjective endings')) return 'Adjective endings';
+    if (value.contains('relative clause')) return 'Relative clauses';
+    if (value.contains('passive')) return 'Passive voice';
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +166,7 @@ class _ModuleCard extends StatelessWidget {
               leading: Icon(Icons.check_circle_outline, size: 20, color: theme.colorScheme.primary),
               title: Text(topic),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
+              onTap: () => _openTopic(context, topic),
             ),
           ),
         ],
