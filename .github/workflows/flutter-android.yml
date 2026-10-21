@@ -15,7 +15,7 @@ jobs:
         working-directory: flutter_shell
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -170,7 +170,7 @@ jobs:
       - name: Build APK
         run: flutter build apk --release --build-name 1.0.2 --build-number "${GITHUB_RUN_NUMBER}"
       - name: Upload APK and resolved dependency lockfile
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: sprachtreppe-flutter-apk
           path: |
