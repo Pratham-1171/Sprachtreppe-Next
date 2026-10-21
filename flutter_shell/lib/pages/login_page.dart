@@ -45,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _loading = true);
     try {
       if (_creatingStudent) {
-        await widget.authService.createStudentAccount(
+        final confirmationRequired = await widget.authService.createStudentAccount(
           fullName: _nameController.text,
           email: _emailController.text,
           password: _passwordController.text,
@@ -54,7 +54,11 @@ class _LoginPageState extends State<LoginPage> {
         _passwordController.clear();
         _confirmPasswordController.clear();
         setState(() => _studentMode = _StudentMode.signIn);
-        _showMessage('Account created. An administrator must approve it before you can sign in.');
+        _showMessage(
+          confirmationRequired
+              ? 'Account created. Check your email to confirm it. An administrator must also approve it before you can sign in.'
+              : 'Account created. An administrator must approve it before you can sign in.',
+        );
       } else {
         final user = await widget.authService.signIn(
           email: _emailController.text,
@@ -262,8 +266,8 @@ class _LoginPageState extends State<LoginPage> {
                     _tab == _AuthTab.admin
                         ? 'Password recovery is not available. Contact the system administrator if access needs to be changed.'
                         : _creatingStudent
-                            ? 'Use a strong password and keep it safe. An administrator must approve your account before login.'
-                            : 'Password recovery is not available in Sprachtreppe.',
+                            ? 'Use a strong password. If email confirmation is enabled, verify your address; administrator approval is also required.'
+                            : 'Sign in with your registered email and password. Student accounts require administrator approval.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall,
                   ),
