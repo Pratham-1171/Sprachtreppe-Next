@@ -35,13 +35,13 @@ jobs:
           # builds. It deliberately remains separate from the older Capacitor app.
           package_id = "com.example.sprachtreppe_flutter"
           source, namespace_count = re.subn(
-              r'namespace\\s*=\\s*"[^"]+"',
+              r'namespace\s*=\s*"[^"]+"',
               f'namespace = "{package_id}"',
               source,
               count=1,
           )
           source, application_count = re.subn(
-              r'applicationId\\s*=\\s*"[^"]+"',
+              r'applicationId\s*=\s*"[^"]+"',
               f'applicationId = "{package_id}"',
               source,
               count=1,
