@@ -7,9 +7,16 @@ import '../services/learning_state_sync_service.dart';
 import '../services/progress_service.dart';
 
 class GrammarPage extends StatefulWidget {
-  const GrammarPage({super.key, required this.userId});
+  const GrammarPage({
+    super.key,
+    required this.userId,
+    this.initialLevel = 'All',
+    this.initialQuery = '',
+  });
 
   final String userId;
+  final String initialLevel;
+  final String initialQuery;
 
   @override
   State<GrammarPage> createState() => _GrammarPageState();
@@ -25,6 +32,10 @@ class _GrammarPageState extends State<GrammarPage> {
   @override
   void initState() {
     super.initState();
+    _level = const {'All', 'A1', 'A2', 'B1'}.contains(widget.initialLevel)
+        ? widget.initialLevel
+        : 'All';
+    _query = widget.initialQuery;
     _future = _service.loadSections();
     _loadSharedProgress();
   }
