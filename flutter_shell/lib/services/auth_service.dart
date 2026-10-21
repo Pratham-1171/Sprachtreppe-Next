@@ -75,31 +75,43 @@ class AuthService {
     }
   }
 
-  Future<void> createStudentAccount({
+  /// Creates a student account and returns whether email confirmation is required.
+  /// The UI must still tell students that administrator approval is separate.
+  Future<bool> createStudentAccount({
     required String fullName,
     required String email,
     required String password,
   }) async {
     final name = fullName.trim();
+    final cleanEmail = email.trim();
     if (name.isEmpty) {
       throw const AuthException('Full name is required.');
     }
 
     final response = await _client.auth.signUp(
-      email: email.trim(),
+      email: cleanEmail,
       password: password,
       data: {'full_name': name},
     );
-
-    // Sprachtreppe uses direct email+password accounts. Email confirmation is
-    // intentionally not part of this flow, so signup should return a session.
-    if (response.session == null) {
+    final createdUser = response.user;
+    if (createdUser == null) {
+      throw const AuthException('Supabase did not return a new account.');
+    }
+    if (createdUser.identities?.isEmpty == true) {
       throw const AuthException(
-        'Account created, but email confirmation is enabled in Supabase. Disable Confirm email in Authentication settings, then create the account again.',
+        'An account with this email may already exist. Try signing in instead.',
       );
     }
 
+    // A null session commonly means confirmation is enabled. The account may
+    // already exist now, so report this state rather than asking the user to
+    // repeat signup (which would then fail as a duplicate).
+    if (response.session == null) return true;
+
+    // With confirmation disabled, signUp creates a session. Leave the app
+    // signed out until the administrator approves the student profile.
     await _client.auth.signOut();
+    return false;
   }
 
   Future<void> signOut() async {
