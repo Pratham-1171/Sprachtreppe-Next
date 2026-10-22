@@ -17,7 +17,7 @@ function boot(server, storage, setup) {
 const dump = w => { const o = {}; for (let i = 0; i < w.localStorage.length; i++) { const k = w.localStorage.key(i); o[k] = w.localStorage.getItem(k); } return o; };
 const $ = (w, s) => w.document.querySelector(s);
 async function fillLogin(w, email, pw, who) {
-  if (who === 'admin') { $(w, '[data-who=admin]').click(); await wait(10); $(w, '#spMethod').click(); await wait(10); }
+  if (who === 'admin') { $(w, '[data-who=admin]').click(); await wait(10); }
   $(w, '#spEmail').value = email; $(w, '#spPw').value = pw;
   $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true})); await wait(120);
 }
@@ -136,52 +136,43 @@ test('a student cannot use the admin screen or the admin API', async () => {
   assert.equal(s.handle('PATCH', SB + '/rest/v1/profiles?id=eq.' + stu.id, h, {role: 'admin'}).body.length, 0, 'cannot promote self');
   assert.equal(stu.role, 'student');
 });
-async function adminCodeFlow(w, email, code) {
-  $(w, '[data-who=admin]').click(); await wait(10);
-  assert.equal($(w, '#spPw'), null, 'admin tab asks for a code, not a password');
-  $(w, '#spEmail').value = email; $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true})); await wait(150);
-  if (code === undefined) return;
-  $(w, '#spEmail').value = email; $(w, '#spCode').value = code; $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true})); await wait(200);
-}
-test('admin signs in with an emailed one-time code (no password)', async () => {
+test('admin signs in with email and password; no one-time code is needed', async () => {
   const s = createServer(); s.addUser('teacher@school.org', PW, {role: 'admin', approved: true, name: 'T'});
   const {window: w, errors} = boot(s); await wait(400);
-  await adminCodeFlow(w, 'teacher@school.org', '000000');
-  assert.match($(w, '#spErr').textContent, /Invalid or expired code/); assert.ok($(w, '#spAuth'), 'wrong code does not unlock');
-  $(w, '#spCode').value = '482913'; $(w, '#spForm').dispatchEvent(new w.Event('submit', {cancelable: true, bubbles: true})); await wait(200);
-  assert.ok(!$(w, '#spAuth'), 'correct code unlocks'); assert.ok(w.SP_AUTH.isAdmin());
-  assert.ok(!JSON.stringify(dump(w)).includes('482913'), 'code is not stored');
+  await fillLogin(w, 'teacher@school.org', 'wrong-password-1', 'admin');
+  assert.match($(w, '#spErr').textContent, /Invalid email or password/);
+  assert.ok($(w, '#spAuth'), 'wrong password must not unlock the app');
+  await fillLogin(w, 'teacher@school.org', PW, 'admin');
+  assert.ok(!$(w, '#spAuth'), 'valid admin password unlocks the app');
+  assert.ok(w.SP_AUTH.isAdmin(), 'loaded profile must confirm admin role');
+  assert.ok(!JSON.stringify(dump(w)).includes(PW), 'password is never stored');
   assert.deepEqual(real(errors), []);
 });
-test('emailed code: unknown emails look identical, students are refused, codes are single-use', async () => {
-  const s = createServer(); s.addUser('teacher@school.org', PW, {role: 'admin', approved: true}); s.addUser('stu@school.org', PW, {approved: true});
-  let page1 = boot(s); await wait(400);
-  await adminCodeFlow(page1.window, 'nobody@school.org');
-  const unknownMsg = $(page1.window, '#spErr').textContent;
-  assert.match(unknownMsg, /If this address belongs to an administrator/); assert.ok($(page1.window, '#spCode'), 'same screen for unknown emails');
-  const page2 = boot(s); await wait(400);
-  await adminCodeFlow(page2.window, 'teacher@school.org');
-  assert.equal($(page2.window, '#spErr').textContent, unknownMsg, 'identical message for a real administrator');
-  // a student cannot use the admin tab, even with a valid code for his own account
-  const page3 = boot(s); await wait(400);
-  await adminCodeFlow(page3.window, 'stu@school.org'); s.otps['stu@school.org'] = '482913';
-  $(page3.window, '#spEmail').value = 'stu@school.org'; $(page3.window, '#spCode').value = '482913';
-  $(page3.window, '#spForm').dispatchEvent(new page3.window.Event('submit', {cancelable: true, bubbles: true})); await wait(200);
-  assert.match($(page3.window, '#spErr').textContent, /not an administrator/); assert.ok($(page3.window, '#spAuth')); assert.equal(dump(page3.window)['sp-auth-v1'], undefined);
-  // offline
-  s.offline = true; $(page3.window, '#spEmail').value = 'stu@school.org'; $(page3.window, '#spCode').value = '482913';
-  $(page3.window, '#spForm').dispatchEvent(new page3.window.Event('submit', {cancelable: true, bubbles: true})); await wait(150);
-  assert.match($(page3.window, '#spErr').textContent, /No internet/); s.offline = false;
-  // single use: first sign-in works, the same code fails afterwards
-  const page4 = boot(s); await wait(400); await adminCodeFlow(page4.window, 'teacher@school.org', '482913'); assert.ok(!$(page4.window, '#spAuth'));
-  const replay = s.handle('POST', SB + '/auth/v1/verify', {apikey: 'k'}, {type: 'email', email: 'teacher@school.org', token: '482913'});
-  assert.equal(replay.status, 403, 'the same code cannot be used twice');
-});
-test('admin can still choose the password method', async () => {
+test('admin login does not reveal whether an email belongs to an administrator', async () => {
   const s = createServer(); s.addUser('teacher@school.org', PW, {role: 'admin', approved: true});
-  const {window: w} = boot(s); await wait(400); $(w, '[data-who=admin]').click(); await wait(10); $(w, '#spMethod').click(); await wait(10);
-  assert.ok($(w, '#spPw')); await fillLogin(w, 'teacher@school.org', PW, undefined); assert.ok(!$(w, '#spAuth'));
+  const {window: w} = boot(s); await wait(400);
+  await fillLogin(w, 'nobody@school.org', PW, 'admin');
+  const unknownMsg = $(w, '#spErr').textContent;
+  assert.match(unknownMsg, /Invalid email or password/);
+  assert.ok($(w, '#spAuth'), 'unknown account must not unlock the app');
+  await fillLogin(w, 'teacher@school.org', 'wrong-password-2', 'admin');
+  assert.equal($(w, '#spErr').textContent, unknownMsg, 'unknown email and wrong password use the same message');
+  assert.ok($(w, '#spAuth'), 'wrong password must not unlock the app');
+  assert.equal(dump(w)['sp-auth-v1'], undefined, 'failed login creates no session');
 });
+test('admin authentication UI exposes password login only, without OTP or recovery controls', async () => {
+  const s = createServer(); s.addUser('teacher@school.org', PW, {role: 'admin', approved: true});
+  const {window: w} = boot(s); await wait(400);
+  $(w, '[data-who=admin]').click(); await wait(20);
+  assert.ok($(w, '#spEmail'), 'email field is visible');
+  assert.ok($(w, '#spPw'), 'password field is visible for admins');
+  assert.equal($(w, '#spCode'), null, 'one-time-code field is not shipped');
+  assert.equal($(w, '#spMethod'), null, 'there is no method toggle');
+  assert.equal($(w, '#spResend'), null, 'there is no OTP resend control');
+  assert.equal($(w, '#spForgot'), null, 'password recovery is not shipped');
+  assert.doesNotMatch($(w, '#spAuth').textContent, /emailed code|forgot password/i);
+});
+
 test('an unconfirmed email gets a clear message instead of "invalid password"', async () => {
   const s = createServer(); s.addUser('u@x.org', PW, {approved: true}).unconfirmed = true;
   const {window: w} = boot(s); await wait(400); await fillLogin(w, 'u@x.org', PW);
