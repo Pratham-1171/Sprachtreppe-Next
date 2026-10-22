@@ -7,6 +7,9 @@ on:
       - "improve/**"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -163,6 +166,18 @@ jobs:
           cp ../course/vocabulary-data.js assets/vocabulary-data.js
       - name: Get dependencies
         run: flutter pub get
+      - name: Commit resolved dependency lockfile
+        if: github.actor != 'github-actions[bot]'
+        run: |
+          git -C .. config user.name "github-actions[bot]"
+          git -C .. config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C .. add flutter_shell/pubspec.lock
+          if git -C .. diff --cached --quiet; then
+            echo "Dependency lockfile is already committed and unchanged."
+          else
+            git -C .. commit -m "chore(flutter): commit resolved dependency lockfile"
+            git -C .. push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
       - name: Analyze
         run: flutter analyze
       - name: Test
