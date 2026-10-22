@@ -1,0 +1,30 @@
+name: Verify password-only authentication tests
+
+on:
+  push:
+    branches:
+      - fix/auth-tests-password-only
+    paths:
+      - tests/auth.test.js
+      - tests/staff-nav.test.js
+      - .github/workflows/test-auth-fix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install exact dependencies from lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Run all tests
+        run: npm test
