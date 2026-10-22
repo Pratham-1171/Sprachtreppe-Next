@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/main.dart';
+import 'package:sprachtreppe_flutter/main.dart';
 
 void main() {
   testWidgets('Sprachtreppe shell opens the course view', (tester) async {
