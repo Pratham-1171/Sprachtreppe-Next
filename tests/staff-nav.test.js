@@ -31,8 +31,6 @@ async function login(w, email, who) {
   if (who === 'admin') {
     $(w, '[data-who=admin]').click();
     await wait(10);
-    $(w, '#spMethod').click();
-    await wait(10);
   }
   $(w, '#spEmail').value = email;
   if ($(w, '#spPw')) $(w, '#spPw').value = PW;
