@@ -2,7 +2,7 @@ name: Build Flutter APK
 
 on:
   push:
-    branches: [main, master, chore/flutter-baseline]
+    branches: [main, master]
     paths:
       - 'flutter_shell/**'
       - '.github/workflows/flutter-apk.yml'
