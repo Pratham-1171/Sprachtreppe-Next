@@ -38,7 +38,9 @@ void main() {
 
     await tester.enterText(field('Email'), 'not-an-email');
     await tester.enterText(field('Password'), 'abc123');
-    await tester.tap(find.widgetWithText(FilledButton, 'Login'));
+    final loginButton = find.widgetWithText(FilledButton, 'Login');
+    await tester.ensureVisible(loginButton);
+    await tester.tap(loginButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Enter a valid email address'), findsOneWidget);
@@ -64,7 +66,9 @@ void main() {
     await tester.enterText(field('Email'), 'not-an-email');
     await tester.enterText(field('Password'), 'abc123');
     await tester.enterText(field('Confirm password'), 'abc123');
-    await tester.tap(find.widgetWithText(FilledButton, 'Create account'));
+    final createButton = find.widgetWithText(FilledButton, 'Create account');
+    await tester.ensureVisible(createButton);
+    await tester.tap(createButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Use at least 8 characters'), findsOneWidget);
