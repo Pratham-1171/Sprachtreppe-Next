@@ -103,7 +103,13 @@ class _LoginPageState extends State<LoginPage> {
 
   String? _validatePassword(String? value) {
     final password = value ?? '';
-    if (password.length < 8) return 'Use at least 8 characters';
+    if (_creatingStudent) {
+      if (password.length < 8) return 'Use at least 8 characters';
+      return null;
+    }
+    if (password.isEmpty) return 'Enter your password';
+    // Existing accounts may predate the sign-up length rule. Let Supabase
+    // validate their credentials instead of blocking them at the form.
     return null;
   }
 
