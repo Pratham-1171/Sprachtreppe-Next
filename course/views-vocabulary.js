@@ -354,10 +354,10 @@ function viewSynonyms(el){
   el.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { synState.tab = b.dataset.tab; viewSynonyms(el); });
   const wrap = $('#synList');
   if(synState.tab === 'opposites'){
-    wrap.innerHTML = OPPOSITES.map(([d1,e1,d2,e2]) => `<div style="background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:6px;display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center">
-      <div style="display:flex;align-items:center;gap:6px"><button class="speak-btn" data-speak="${esc(d1)}">🔊</button><span style="font-weight:650">${esc(d1)}<span style="display:block;font-size:11.5px;color:var(--muted);font-weight:400">${esc(e1)}</span></span></div>
+    wrap.innerHTML = OPPOSITES.map(([d1,e1,d2,e2]) => `<div style="background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:6px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:clamp(4px,2vw,10px);align-items:center;min-width:0">
+      <div style="display:flex;align-items:center;gap:6px;min-width:0"><button class="speak-btn" data-speak="${esc(d1)}">🔊</button><span style="font-weight:650;min-width:0;overflow-wrap:anywhere">${esc(d1)}<span style="display:block;font-size:11.5px;color:var(--muted);font-weight:400">${esc(e1)}</span></span></div>
       <div style="color:var(--accent);font-weight:800">↔</div>
-      <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;text-align:right"><span style="font-weight:650">${esc(d2)}<span style="display:block;font-size:11.5px;color:var(--muted);font-weight:400">${esc(e2)}</span></span><button class="speak-btn" data-speak="${esc(d2)}">🔊</button></div>
+      <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;text-align:right;min-width:0"><span style="font-weight:650;min-width:0;overflow-wrap:anywhere">${esc(d2)}<span style="display:block;font-size:11.5px;color:var(--muted);font-weight:400">${esc(e2)}</span></span><button class="speak-btn" data-speak="${esc(d2)}">🔊</button></div>
     </div>`).join('');
   } else {
     wrap.innerHTML = SYNONYMS.map(s => `<div style="background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:6px">
