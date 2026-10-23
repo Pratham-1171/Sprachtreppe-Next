@@ -10,6 +10,14 @@ test('local build: every screen renders without a script error', async () => {
   assert.deepEqual(real(errors), []);
   const views = ['home','session','review','vocab','grammar','quiz','flash','verbs','connectors','collocations','compare','mistakes','sentence','spelling','dictation','families','articles','pronounce','synonyms','patterns','listen','speak','read','write','exam','resources','progress','settings'];
   for (const v of views) { errors.length = 0; await go(w, v); assert.deepEqual(real(errors), [], 'view ' + v); }
+  await go(w, 'synonyms');
+  const oppositePair = w.document.querySelector('#synList > div');
+  assert.ok(oppositePair, 'opposites list renders a row');
+  assert.match(oppositePair.getAttribute('style') || '', /grid-template-columns:minmax\\(0,1fr\\) auto minmax\\(0,1fr\\)/, 'opposite columns can shrink below min-content width');
+  assert.match(oppositePair.children[0].getAttribute('style') || '', /min-width:0/, 'left word column can shrink');
+  assert.match(oppositePair.children[0].querySelector('span').getAttribute('style') || '', /overflow-wrap:anywhere/, 'long left words can wrap on narrow screens');
+  assert.match(oppositePair.children[2].getAttribute('style') || '', /min-width:0/, 'right word column can shrink');
+  assert.match(oppositePair.children[2].querySelector('span').getAttribute('style') || '', /overflow-wrap:anywhere/, 'long right words can wrap on narrow screens');
   assert.equal(w.__SP_ENGINE_VERSION, '8.0-grammar-core');
   assert.equal(w.SP_AUTH.enabled, false, 'local mode has no login');
 });
