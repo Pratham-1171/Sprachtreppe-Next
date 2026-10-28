@@ -3,3 +3,20 @@ android/.gradle/
 android/app/build/
 android/build/
 android/local.properties
+
+# Local backend configuration (never commit)
+.env
+.env.*
+!.env.example
+course/config.local.json
+
+# Flutter generated output (pubspec.lock stays tracked)
+flutter_shell/.dart_tool/
+flutter_shell/build/
+flutter_shell/.flutter-plugins
+flutter_shell/.flutter-plugins-dependencies
+
+# Android signing material
+**/key.properties
+**/*.jks
+**/*.keystore

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Run the normal course build, then inject the mobile-first LMS layer."""
 import subprocess
+import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
-subprocess.run(["python3", str(root / "scripts/build-course.py")], check=True)
+subprocess.run([sys.executable, str(root / "scripts/build-course.py")], check=True)
 out = root / "www" / "index.html"
 lms = (root / "course" / "lms-ui.js").read_text(encoding="utf-8")
 mobile_css = (root / "course" / "lms-mobile-fix.css").read_text(encoding="utf-8")
