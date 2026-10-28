@@ -2,7 +2,7 @@ name: Build Flutter APK
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, chore/flutter-baseline]
     paths:
       - 'flutter_shell/**'
       - '.github/workflows/flutter-apk.yml'
@@ -20,6 +20,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.7
           cache: true
 
       - name: Create Android project shell
