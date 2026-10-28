@@ -1,10 +1,10 @@
 # Flutter Shell Baseline
 
 **Initial baseline captured:** 2026-10-22  
-**Repair verified:** 2026-10-22  
+**Pinned-version validation:** 2026-10-28  
 **Branch:** `chore/flutter-baseline`  
 **Initial diagnostic run:** [Build Flutter APK — baseline diagnostics](https://github.com/Pratham-1171/Sprachtreppe-Next/actions/runs/39777350393)  
-**Passing validation run:** [Build Flutter APK — all checks passed](https://github.com/Pratham-1171/Sprachtreppe-Next/actions/runs/39785561990)
+**Passing pinned-version run:** [Build Flutter APK — all checks passed](https://github.com/Pratham-1171/Sprachtreppe-Next/actions/runs/40627653499)
 
 ## Toolchain and dependency resolution
 
@@ -23,7 +23,7 @@
 | `flutter test` | PASS | **Failed on the first run; fixed in this PR.** A tracked `test/widget_test.dart` now tests `SprachtreppeApp`, level selection, bottom navigation and Material 3 instead of the generated `MyApp` placeholder. |
 | `flutter build apk --debug` | PASS | CI produced `flutter_shell/build/app/outputs/flutter-apk/app-debug.apk` and uploaded the `Sprachtreppe-Flutter-APK` artifact. |
 
-The initial diagnostic run failed overall because `flutter analyze` and `flutter test` were blocked. The repair run passed all four relevant steps: dependency resolution, analysis, tests and debug APK build. See the [passing validation run](https://github.com/Pratham-1171/Sprachtreppe-Next/actions/runs/39785561990); the [initial diagnostic run](https://github.com/Pratham-1171/Sprachtreppe-Next/actions/runs/39777350393) is retained as historical evidence.
+The initial diagnostic run failed overall because `flutter analyze` and `flutter test` were blocked. The repair run passed dependency resolution, analysis, tests and the debug APK build using the pinned Flutter version. See the [passing pinned-version run](https://github.com/Pratham-1171/Sprachtreppe-Next/actions/runs/40627653499); the [initial diagnostic run](https://github.com/Pratham-1171/Sprachtreppe-Next/actions/runs/39777350393) is retained as historical evidence.
 
 ## What is tracked in this shell
 
