@@ -4,7 +4,8 @@
   "private": true,
   "description": "Sprachtreppe — German A1–B1 course with accounts, weekly sync and teacher review",
   "scripts": {
-    "build": "ALLOW_LOCAL_MODE=1 python3 scripts/build-course.py",
+    "build": "node scripts/build.js --local",
+    "build:lms": "node scripts/build.js --lms",
     "dev": "node server.js",
     "start": "node server.js",
     "test": "node --test --test-timeout=240000 \"tests/*.test.js\"",

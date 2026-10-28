@@ -1,22 +1,23 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const os = require('os');
+const { spawnSync } = require('child_process');
+const pythonCommand = require('./scripts/python');
 
-const PORT = 3000;
-const HOST = '0.0.0.0';
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || '0.0.0.0'; // 0.0.0.0 lets a phone on the same Wi-Fi reach the dev server
 const WWW_DIR = path.join(__dirname, 'www');
 
 // Ensure www/index.html is built
 if (!fs.existsSync(path.join(WWW_DIR, 'index.html'))) {
   console.log('[DevServer] www/index.html not found, building...');
-  try {
-    execSync('python3 scripts/build-course.py', {
-      stdio: 'inherit',
-      env: { ...process.env, ALLOW_LOCAL_MODE: '1' }
-    });
-  } catch (err) {
-    console.error('[DevServer] Build failed:', err);
+  const r = spawnSync(pythonCommand(), [path.join(__dirname, 'scripts', 'build-course.py')], {
+    stdio: 'inherit',
+    env: { ...process.env, ALLOW_LOCAL_MODE: '1' }
+  });
+  if (r.error || r.status !== 0) {
+    console.error('[DevServer] Build failed:', r.error ? r.error.message : 'exit code ' + r.status);
   }
 }
 
@@ -55,6 +56,13 @@ const server = http.createServer((req, res) => {
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
+      // Missing files with an extension (js, css, png...) must be a real 404,
+      // otherwise a broken asset path silently returns the HTML page.
+      if (path.extname(pathname)) {
+        res.statusCode = 404;
+        res.end('Not found: ' + pathname);
+        return;
+      }
       filePath = path.join(WWW_DIR, 'index.html');
     }
 
@@ -74,6 +82,24 @@ const server = http.createServer((req, res) => {
   });
 });
 
+function describeBuild() {
+  try {
+    const html = fs.readFileSync(path.join(WWW_DIR, 'index.html'), 'utf8');
+    const hasBackend = /window\.SP_CONFIG=\{"url"/.test(html);
+    const hasLms = html.includes('viewClassroom');
+    if (hasBackend && hasLms) return 'classroom build (login/sync + LMS)';
+    return 'WARNING: ' + (hasBackend ? 'backend configured' : 'LOCAL MODE, no login/sync') +
+      (hasLms ? '' : ', no LMS layer') + ' -- run "npm run build:lms" with SUPABASE_URL and SUPABASE_ANON_KEY set';
+  } catch { return 'unknown (could not read www/index.html)'; }
+}
+
 server.listen(PORT, HOST, () => {
-  console.log(`[DevServer] Sprachtreppe serving on http://${HOST}:${PORT}`);
+  console.log('[DevServer] Sprachtreppe is running');
+  console.log('  This PC:  http://localhost:' + PORT);
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const n of list || []) {
+      if (n.family === 'IPv4' && !n.internal) console.log('  Phone (same Wi-Fi):  http://' + n.address + ':' + PORT);
+    }
+  }
+  console.log('  Serving: ' + describeBuild());
 });
