@@ -81,7 +81,7 @@ GRAMMAR_DATA.push(
           ["❌ Wegen der Nachfrage steigt ... (when a concise nominal phrase is intended).", "✅ Aufgrund des Anstiegs der Nachfrage ..."],
           ["❌ Nach die Untersuchung ...", "✅ Nach der Untersuchung ..."]
         ],
-        exercise: { q: "Choose the correct nominal phrase: 'after the completion of the project'.", options: ["nach die Fertigstellung des Projekts", "nach Fertigstellung des Projekts", "nach dem fertigstellen des Projekts"], correct: 1, why: "nach governs Dativ; formal German often uses the noun without an article here." }
+        exercise: { q: "Choose the correct nominal phrase: 'after the completion of the project'.", options: ["nach der Fertigstellung des Projekts", "nach die Fertigstellung des Projekts", "nach dem Fertigstellung des Projekts"], correct: 0, why: "nach governs Dativ; Fertigstellung is feminine, so the article is der." }
       }
     ]
   },
