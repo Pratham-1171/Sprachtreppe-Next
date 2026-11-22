@@ -1,0 +1,65 @@
+name: Validate CEFR A1-C2 content
+
+on:
+  push:
+    branches:
+      - feature/cefr-a1-c2-expansion
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "course/**"
+      - "scripts/build-course.py"
+      - "tests/**"
+      - ".github/workflows/cefr-content-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the full test suite
+        run: npm test
+
+      - name: Validate the course build
+        env:
+          ALLOW_LOCAL_MODE: "1"
+        run: python3 scripts/build-course.py
+
+      - name: Check bundled JavaScript syntax and CEFR coverage
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const html = fs.readFileSync('www/index.html', 'utf8');
+          const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+          if (!inline.length) throw new Error('No inline application script found.');
+          inline.forEach((source, index) => new vm.Script(source, { filename: 'inline-' + index + '.js' }));
+          for (const level of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) {
+            if (!html.includes('data-lvl="' + level + '"') && !html.includes('value="' + level + '"')) {
+              throw new Error('Missing CEFR level in built app: ' + level);
+            }
+          }
+          if (!html.includes('Ermessensspielraum')) throw new Error('C2 vocabulary was not bundled.');
+          console.log('Built scripts parse successfully; A1-C2 filters and advanced vocabulary are present.');
+          NODE

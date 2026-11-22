@@ -16,9 +16,11 @@ base_css = (root / 'course/base.css').read_text(encoding='utf-8')
 app_module_files = [
     'ui-language.js',
     'vocabulary-data.js',
+    'advanced-vocabulary-data.js',
     'word-reference-data.js',
     'grammar-reference-data.js',
     'grammar-expansion.js',
+    'advanced-cefr-content.js',
     'phrase-reference-data.js',
     'achievement-data.js',
     'core-engine.js',

@@ -10,7 +10,7 @@ function viewVocab(el){
       <div class="row mt">
         <select id="vtopic" class="grow"><option value="all">${t('all_topics')}</option>${TOPIC_NAMES.map(x => `<option value="${esc(x)}" ${vocabState.topic===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
         <select id="vart" style="width:auto"><option value="all">${t('all_articles')}</option><option value="der" ${vocabState.art==='der'?'selected':''}>der</option><option value="die" ${vocabState.art==='die'?'selected':''}>die</option><option value="das" ${vocabState.art==='das'?'selected':''}>das</option></select>
-        <select id="vlevel" style="width:auto"><option value="all">${t('all_levels')}</option><option value="A1" ${vocabState.level==='A1'?'selected':''}>A1</option><option value="A2" ${vocabState.level==='A2'?'selected':''}>A2</option><option value="B1" ${vocabState.level==='B1'?'selected':''}>B1</option></select>
+        <select id="vlevel" style="width:auto"><option value="all">${t('all_levels')}</option><option value="A1" ${vocabState.level==='A1'?'selected':''}>A1</option><option value="A2" ${vocabState.level==='A2'?'selected':''}>A2</option><option value="B1" ${vocabState.level==='B1'?'selected':''}>B1</option><option value="B2" ${vocabState.level==='B2'?'selected':''}>B2</option><option value="C1" ${vocabState.level==='C1'?'selected':''}>C1</option><option value="C2" ${vocabState.level==='C2'?'selected':''}>C2</option></select>
       </div>
       <div class="mt row" style="justify-content:space-between">
         <span style="font-size:13px;color:var(--muted)" id="vcount"></span>
@@ -177,7 +177,7 @@ const QUIZ_MODES = {
   opposite:    {label:'↔️ Opposites', gen:(d) => generateVocabExercise('opposite', null, d)},
   synonym:     {label:'📚 Synonyms', gen:(d) => generateVocabExercise('synonym', null, d)},
   listen:      {label:'🎧 Listening', gen:(d) => EXERCISE_REGISTRY.listening({level:'A2', difficulty:'normal'})},
-  grammar:     {label:'📖 Grammar', gen:(d) => generateGrammarExerciseLadder('A2', 'normal')},
+  grammar:     {label:'📖 Grammar', gen:(d) => generateGrammarExerciseLadder(quizState.level || 'A2', 'normal')},
   connector:   {label:'🔗 Connectors', gen:(d) => generateConnectorExercise(rPick(CONNECTORS))},
   collocation: {label:'🧱 Collocations', gen:(d) => generateCollocationExercise(rPick(COLLOCATIONS))},
   compare:     {label:'⚖️ Compare', gen:(d) => generateComparisonExercise(rPick(VERB_COMPARISONS))},
