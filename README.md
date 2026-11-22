@@ -1,8 +1,12 @@
-# Sprachtreppe — German A1–B1
+# Sprachtreppe — German A1–C2 (expansion in progress)
 
-A practical German-learning companion from **A1 to B1**: structured grammar notes, searchable vocabulary, examples, common-mistake guidance, sentence connectors, verb–preposition pairs, email/letter templates, interactive exercises, and an offline-first Android/web course.
+A practical German-learning companion being expanded from **A1 through C2**: structured grammar notes, searchable vocabulary, examples, common-mistake guidance, sentence connectors, verb–preposition pairs, email/letter templates, interactive exercises, and an offline-first Android/web course.
 
 Use the Markdown notes for quick revision on GitHub, then practise the same grammar and vocabulary in the app. The material follows common CEFR A1–B1 learning goals and can be used alongside textbooks such as *Netzwerk neu*. It is independent supplementary material, not an official Hueber publication; exact chapter numbering depends on your book edition.
+
+## A1–C2 expansion status
+
+The feature branch `feature/cefr-a1-c2-expansion` adds starter B2, C1 and C2 grammar lessons and a small advanced vocabulary seed set. The existing A1–B1 lessons, offline app, Android shell and Supabase classroom system are retained. This is an incremental expansion: the complete C2 curriculum and a comprehensive German lexicon are still future content work. See the [A1–C2 expansion plan](docs/roadmap/A1_C2_EXPANSION_PLAN.md).
 
 ## Table of contents
 
@@ -116,9 +120,9 @@ The app's course source is modular. **Edit files under `course/`, not the genera
 | `course/template.html` | Page skeleton and mount points |
 | `course/base.css`, `course/theme.css` | Main UI styling and theme refinements |
 | `course/ui-language.js` | Interface text and translations |
-| `course/vocabulary-data.js` | Vocabulary topic records |
+| `course/vocabulary-data.js`, `course/advanced-vocabulary-data.js` | A1–B1 vocabulary and B2–C2 starter entries |
 | `course/word-reference-data.js` | Pronunciation rules, synonyms and opposites |
-| `course/grammar-reference-data.js`, `course/grammar-expansion.js` | Existing grammar lessons, added A1–B1 topics and deeper teaching notes |
+| `course/grammar-reference-data.js`, `course/grammar-expansion.js`, `course/advanced-cefr-content.js` | A1–B1 lessons, teaching notes and B2–C2 starter lessons |
 | `course/phrase-reference-data.js`, `course/achievement-data.js` | Verb patterns, connectors, word families, resources and achievements |
 | `course/core-engine.js`, `course/exercise-registry.js` | State, mastery, exercise generation and exercise routing |
 | `course/views-dashboard.js` | Home, sessions, review and mistakes |
