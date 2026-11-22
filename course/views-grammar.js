@@ -35,7 +35,7 @@ function viewGrammar(el){
     wireSpeakers(el);
     const gp = $('#grammarPractice');
     if(gp) gp.onclick = () => {
-      quizState.mode = 'grammar'; quizState.count = 20; quizState.difficulty = 'normal';
+      quizState.mode = 'grammar'; quizState.level = activeLevel === 'all' ? 'A1' : activeLevel; quizState.count = 20; quizState.difficulty = 'normal';
       buildQuizQueue('grammar', 20, 'normal');
       location.hash = '#/quiz';
       setTimeout(() => renderQuiz(), 60);
