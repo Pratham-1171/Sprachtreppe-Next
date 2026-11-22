@@ -52,7 +52,7 @@ jobs:
           const fs = require('node:fs');
           const vm = require('node:vm');
           const html = fs.readFileSync('www/index.html', 'utf8');
-          const inline = [...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)].map(m => m[1]);
+          const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
           if (!inline.length) throw new Error('No inline application script found.');
           inline.forEach((source, index) => new vm.Script(source, { filename: 'inline-' + index + '.js' }));
           for (const level of ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) {
