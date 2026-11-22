@@ -12,6 +12,9 @@ function viewGrammar(el){
         <button class="btn ${activeLevel==='A1'?'':'ghost'}" data-lvl="A1">A1</button>
         <button class="btn ${activeLevel==='A2'?'':'ghost'}" data-lvl="A2">A2</button>
         <button class="btn ${activeLevel==='B1'?'':'ghost'}" data-lvl="B1">B1</button>
+        <button class="btn ${activeLevel==='B2'?'':'ghost'}" data-lvl="B2">B2</button>
+        <button class="btn ${activeLevel==='C1'?'':'ghost'}" data-lvl="C1">C1</button>
+        <button class="btn ${activeLevel==='C2'?'':'ghost'}" data-lvl="C2">C2</button>
         <button class="btn small good" id="grammarPractice">⚡ Practice ∞</button>
       </div></div>
       ${sections.map(sec => { const offset = GRAMMAR_DATA.slice(0, GRAMMAR_DATA.indexOf(sec)).filter(g => g.level === sec.level).reduce((sum, g) => sum + g.items.length, 0); return `<h3>${esc(sec.level)} · ${esc(sec.title)}</h3>${sec.items.map((it,idx) => grammarCardHTML(sec.level, offset + idx, it)).join('')}`; }).join('')}`;
