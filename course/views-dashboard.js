@@ -33,7 +33,7 @@ function viewHome(el){
       <button class="tile" data-go="session"><span class="t-ico">⚡</span><span class="t-name">Session</span><span class="t-desc">Infinite guided</span></button>
       <button class="tile" data-go="review"><span class="t-ico">🧠</span><span class="t-name">Smart Review</span><span class="t-desc">Due + mistakes</span></button>
       <button class="tile" data-go="vocab"><span class="t-ico">📚</span><span class="t-name">Vocabulary</span><span class="t-desc">${total} words</span></button>
-      <button class="tile" data-go="grammar"><span class="t-ico">📖</span><span class="t-name">Grammar</span><span class="t-desc">A1 / A2 / B1</span></button>
+      <button class="tile" data-go="grammar"><span class="t-ico">📖</span><span class="t-name">Grammar</span><span class="t-desc">A1–C2</span></button>
       <button class="tile" data-go="quiz"><span class="t-ico">🎯</span><span class="t-name">Quiz</span><span class="t-desc">Infinite modes</span></button>
       <button class="tile" data-go="verbs"><span class="t-ico">🔥</span><span class="t-name">Verbs</span><span class="t-desc">Usage + freq</span></button>
       <button class="tile" data-go="connectors"><span class="t-ico">🔗</span><span class="t-name">Connectors</span><span class="t-desc">${CONNECTORS.length} rules</span></button>
